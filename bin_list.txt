@@ -1,0 +1,8 @@
+####################################################
+
+DISTRICT PAPER 2015:  BIN LIST
+
+DATA:
+
+1.  Population: Fix the per district New Hampshire data
+2.  Population: Verify the correct number of districts per state for both chambers.
