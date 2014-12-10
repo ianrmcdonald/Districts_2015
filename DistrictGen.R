@@ -161,90 +161,132 @@ for (v.ought in 1:10)  {
         
         df.house.20xx$LD <- df.house.20xx[[s.currhdcol]]
         df.senate.20xx$LD <- df.senate.20xx[[s.currsdcol]]
+        ##  set columns in Shor McCarty extract.
         
         ## validate number of reps from each district
         df.house.20xx[,s.currhcol] <- as.numeric(df.house.20xx[,s.currhcol])
-        df.house.20xx$LD[nchar(df.house.20xx$LD)==1] <- paste("00",df.house.20xx$LD,sep="")
-        df.house.20xx$LD[nchar(df.house.20xx$LD)==2] <- paste("0",df.house.20xx$LD,sep="")
+        df.house.20xx$LD[nchar(df.house.20xx$LD)==1] <- paste("00",df.house.20xx$LD[nchar(df.house.20xx$LD)==1],sep="")
+        df.house.20xx$LD[nchar(df.house.20xx$LD)==2] <- paste("0",df.house.20xx$LD[nchar(df.house.20xx$LD)==2],sep="")
         df.house.20xx$st_hd <- paste(df.house.20xx$st,df.house.20xx[,"LD"],sep="")
-        v.house.20xx.tmp <- as.data.frame(tapply(df.house.20xx[,s.currhcol],df.house.20xx$st_hd,sum))
+        v.house.20xx.tmp  <- tapply(df.house.20xx[,s.currhcol],df.house.20xx$st_hd,sum)
+        df.house.20xx.tmp <- cbind.data.frame("st_hd"=names(v.house.20xx.tmp),"dnum" = as.numeric(v.house.20xx.tmp))
+        df.house.20xx <- merge(df.house.20xx,df.house.20xx.tmp,by="st_hd")
+        rm(v.house.20xx.tmp,df.house.20xx.tmp)    
         
         ## validate number of senators from each district
         df.senate.20xx[,s.currscol] <- as.numeric(df.senate.20xx[,s.currscol])
-        df.senate.20xx$LD[nchar(df.senate.20xx$LD)==1] <- paste("00",df.senate.20xx$LD,sep="")
-        df.senate.20xx$LD[nchar(df.senate.20xx$LD)==2] <- paste("0",df.senate.20xx$LD,sep="")
+        df.senate.20xx$LD[nchar(df.senate.20xx$LD)==1] <- paste("00",df.senate.20xx$LD[nchar(df.senate.20xx$LD)==1],sep="")
+        df.senate.20xx$LD[nchar(df.senate.20xx$LD)==2] <- paste("0",df.senate.20xx$LD[nchar(df.senate.20xx$LD)==2],sep="")
         df.senate.20xx$st_hd <- paste(df.senate.20xx$st,df.senate.20xx[,"LD"],sep="")
-        v.senate.20xx.tmp <- as.data.frame(tapply(df.senate.20xx[,s.currscol],df.senate.20xx$st_hd,sum))
+        v.senate.20xx.tmp  <- tapply(df.senate.20xx[,s.currscol],df.senate.20xx$st_hd,sum)
+        df.senate.20xx.tmp <- cbind.data.frame("st_hd"=names(v.senate.20xx.tmp),"dnum" = as.numeric(v.senate.20xx.tmp))
+        df.senate.20xx <- merge(df.senate.20xx,df.senate.20xx.tmp,by="st_hd")
+        rm(v.senate.20xx.tmp,df.senate.20xx.tmp)      
         
-        
-        
-        
-        
-        names(v.house.20xx.tmp) <- "LD"; v.house.20xx.tmp$st_hd <- row.names(v.house.20xx.tmp)   
-        df.house.20xx <- merge(df.house.20xx,v.house.20xx.tmp,by.x="st_hd",by.y="st_hd",all.x=TRUE)
-        names(v.senate.20xx.tmp) <- "LD"; v.senate.20xx.tmp$st_hd <- row.names(v.senate.20xx.tmp)   
-        df.senate.20xx <- merge(df.senate.20xx,v.senate.20xx.tmp,by.x="st_hd",by.y="st_hd",all.x=TRUE)
-        
-        
-        ############# Stop here 9:07 12/9
-        
-      
-        
-        
-        
-        
-        
-        ## Eliminate house districts that aren't mm.
-        if (FILTER.MM) house.20xx.mm <- house.20xx.mm[house.20xx.mm$LD.y > 1,]
-        
+        ## Testing conditions for legislatures that have 3 members or more.  GA, MD, NH, and WV are the relevant ones here
         ##  handle records for more than two reps per district or one senator per district
         ##  routine can do one of two things:
         ##  1) keeps only the reps with the two highest st_id values, presumably the last two
         ##  to serve.  should work for any number N reps.
         ##  2) keep that np_score or compute the mean.
         
-        ######  TESTING to keep all recs
-        house.20xx.n2 <- house.20xx.mm[house.20xx.mm$LD.y > 2,]
-        senate.20xx.n2 <- senate.20xx.mm[senate.20xx.mm$LD.y > 1,]
         
-        if(nrow(house.20xx.n2 > 0)) {
-                n2dists <- unique(house.20xx.n2$st_hd)
-                house.20xx.mean_np <- aggregate(np_score ~ st_hd, house.20xx.n2, mean)
-                house.20xx.n2 <- merge(house.20xx.n2,house.20xx.mean_np,by="st_hd")
-                house.20xx.n2 <- rename(house.20xx.n2, c("np_score.x"="np_score", "np_score.y"="np_mean"))
-
-                house.20xx.n2 <- house.20xx.n2[order(house.20xx.n2$st_hd,house.20xx.n2$st_id,decreasing=TRUE),]
-                for (i in 1:length(n2dists)) {
-                        iter <- house.20xx.n2[house.20xx.n2$st_hd==n2dists[i],]
-                        iter.st_id <- iter$st_id[c(1:2)]
-                        house.20xx.n2 <- house.20xx.n2[house.20xx.n2$st_hd != n2dists[i] | 
-                                house.20xx.n2$st_id %in% iter.st_id,]
-                }
-                house.20xx.mm <- house.20xx.mm[!house.20xx.mm$st_hd %in% n2dists,]
-                house.20xx.mm$np_mean <- house.20xx.mm$np_score
-                house.20xx.mm <- rbind(house.20xx.mm,house.20xx.n2)
-        }
+        df.house.20xx.mm1 <- df.house.20xx[df.house.20xx$dnum > 1 & !df.house.20xx$st %in% v.mult_memb_states,]
+        df.house.20xx.mm2 <- df.house.20xx[df.house.20xx$dnum > 2 & df.house.20xx$st %in% v.mult_memb_states,]
         
-        if(nrow(senate.20xx.n2 > 0)) {
-                n2dists <- unique(senate.20xx.n2$st_sd)
-                senate.20xx.mean_np <- aggregate(np_score ~ st_sd, senate.20xx.n2, mean)
-                senate.20xx.n2 <- merge(senate.20xx.n2,senate.20xx.mean_np,by="st_sd")
-                senate.20xx.n2 <- rename(senate.20xx.n2, c("np_score.x"="np_score", "np_score.y"="np_mean"))
+        df.house.20xx.mm <- rbind(df.house.20xx.mm1,df.house.20xx.mm2); rm(df.house.20xx.mm1,df.house.20xx.mm2)
+        df.senate.20xx.mm<- df.senate.20xx[df.senate.20xx$dnum > 1,]
                 
-                senate.20xx.n2 <- senate.20xx.n2[order(senate.20xx.n2$st_sd,senate.20xx.n2$st_id,decreasing=TRUE),]
-                for (i in 1:length(n2dists)) {
-                        iter <- senate.20xx.n2[senate.20xx.n2$st_sd==n2dists[i],]
-                        iter.st_id <- iter$st_id[c(1:1)]
-                        senate.20xx.n2 <- senate.20xx.n2[senate.20xx.n2$st_sd != n2dists[i] | 
-                                                               senate.20xx.n2$st_id %in% iter.st_id,]
+        if(nrow(df.house.20xx.mm > 0)) {
+                
+                v.n2dists <- unique(df.house.20xx.mm$st_hd)
+                v.house.20xx.mean_np <- aggregate(np_score ~ st_hd, data=df.house.20xx.mm, mean)
+                df.house.20xx.mm <- merge(df.house.20xx.mm,v.house.20xx.mean_np,by="st_hd")
+                df.house.20xx.mm <- rename(df.house.20xx.mm, c("np_score.x"="np_score", "np_score.y"="np_mean"))
+                
+                #eliminate the lowest st_id's
+                ########### 12/10 10:32 working on this section.
+                df.house.20xx.mm <- df.house.20xx.mm[order(df.house.20xx.mm$st_hd,df.house.20xx.mm$st_id,decreasing=TRUE),]
+                ## just take one member.  Need two separate routines (mm and !mm)
+                
+                
+                for (i in 1:length(v.n2dists)) {
+                        df.iter <- df.house.20xx.mm[df.house.20xx.mm$st_hd==v.n2dists[i],]
+                        df.iter.st_id <- df.iter$st_id[c(1:1)]
+                        df.house.20xx.mm <- df.house.20xx.mm[df.house.20xx.mm$st_hd != v.n2dists[i] | 
+                                df.house.20xx.mm$st_id %in% df.iter.st_id,]
                 }
-                senate.20xx.mm <- senate.20xx.mm[!senate.20xx.mm$st_sd %in% n2dists,]
-                senate.20xx.mm$np_mean <- senate.20xx.mm$np_score
-                senate.20xx.mm <- rbind(senate.20xx.mm,senate.20xx.n2)
-        }
+                
+                if(nrow(df.house.20xx.mm > 0)) {
+                        
+                        v.n2dists <- unique(df.house.20xx.mm$st_hd)
+                        v.house.20xx.mean_np <- aggregate(np_score ~ st_hd, data=df.house.20xx.mm, mean)
+                        df.house.20xx.mm <- merge(df.house.20xx.mm,v.house.20xx.mean_np,by="st_hd")
+                        df.house.20xx.mm <- rename(df.house.20xx.mm, c("np_score.x"="np_score", "np_score.y"="np_mean"))
+                        
+                        #eliminate the lowest st_id's
+                        ########### 12/10 10:32 working on this section.
+                        df.house.20xx.mm <- df.house.20xx.mm[order(df.house.20xx.mm$st_hd,df.house.20xx.mm$st_id,decreasing=TRUE),]
+                        ## just take one member.  Need two separate routines (mm and !mm)
+                        
+                        
+                        for (i in 1:length(v.n2dists)) {
+                                df.iter <- df.house.20xx.mm[df.house.20xx.mm$st_hd==v.n2dists[i],]
+                                df.iter.st_id <- df.iter$st_id[c(1:1)]
+                                df.house.20xx.mm <- df.house.20xx.mm[df.house.20xx.mm$st_hd != v.n2dists[i] | 
+                                                                             df.house.20xx.mm$st_id %in% df.iter.st_id,]
+                        }
+                df.house.20xx.mm$np_score <- df.house.20xx.mm$np_mean
+                }
+        }                
+        if(nrow(df.senate.20xx.mm > 0)) {
+                
+                v.n2dists <- unique(df.senate.20xx.mm$st_hd)
+                v.senate.20xx.mean_np <- aggregate(np_score ~ st_hd, data=df.senate.20xx.mm, mean)
+                df.senate.20xx.mm <- merge(df.senate.20xx.mm,v.senate.20xx.mean_np,by="st_hd")
+                df.senate.20xx.mm <- rename(df.senate.20xx.mm, c("np_score.x"="np_score", "np_score.y"="np_mean"))
+                
+                #eliminate the lowest st_id's
+                ########### 12/10 10:32 working on this section.
+                df.senate.20xx.mm <- df.senate.20xx.mm[order(df.senate.20xx.mm$st_hd,df.senate.20xx.mm$st_id,decreasing=TRUE),]
+                ## just take one member.  Need two separate routines (mm and !mm)
+                
+                
+                for (i in 1:length(v.n2dists)) {
+                        df.iter <- df.senate.20xx.mm[df.senate.20xx.mm$st_hd==v.n2dists[i],]
+                        df.iter.st_id <- df.iter$st_id[c(1:1)]
+                        df.senate.20xx.mm <- df.senate.20xx.mm[df.senate.20xx.mm$st_hd != v.n2dists[i] | 
+                                                                     df.senate.20xx.mm$st_id %in% df.iter.st_id,]
+                }
+                
+                if(nrow(df.senate.20xx.mm > 0)) {
+                        
+                        v.n2dists <- unique(df.senate.20xx.mm$st_hd)
+                        v.senate.20xx.mean_np <- aggregate(np_score ~ st_hd, data=df.senate.20xx.mm, mean)
+                        df.senate.20xx.mm <- merge(df.senate.20xx.mm,v.senate.20xx.mean_np,by="st_hd")
+                        df.senate.20xx.mm <- rename(df.senate.20xx.mm, c("np_score.x"="np_score", "np_score.y"="np_mean"))
+                        
+                        #eliminate the lowest st_id's
+                        ########### 12/10 10:32 working on this section.
+                        df.senate.20xx.mm <- df.senate.20xx.mm[order(df.senate.20xx.mm$st_hd,df.senate.20xx.mm$st_id,decreasing=TRUE),]
+                        ## just take one member.  Need two separate routines (mm and !mm)
+                        
+                        
+                        for (i in 1:length(v.n2dists)) {
+                                df.iter <- df.senate.20xx.mm[df.senate.20xx.mm$st_hd==v.n2dists[i],]
+                                df.iter.st_id <- df.iter$st_id[c(1:1)]
+                                df.senate.20xx.mm <- df.senate.20xx.mm[df.senate.20xx.mm$st_hd != v.n2dists[i] | 
+                                                                             df.senate.20xx.mm$st_id %in% df.iter.st_id,]
+                        }
+                        df.senate.20xx.mm$np_score <- df.senate.20xx.mm$np_mean
+                        
+                }
+                
+        }        
+                
+               
+ ################## Now working on this part:  12/10 1:08pm               
         
-        rm(house.20xx.n2)
-        rm(senate.20xx.n2)
         house.20xx.mm$year <- oyear
         senate.20xx.mm$year <- oyear
 
