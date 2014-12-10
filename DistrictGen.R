@@ -27,8 +27,8 @@ setwd(s.district2015_dir)
 ## Reference information is contained in TW.xlsx
 ####################################################################################################
 
-df.tw.lower <- read.csv(paste(district2015_dir,"TW_lower.csv",sep=""),header=TRUE)
-df.tw.upper <- read.csv(paste(district2015_dir,"TW_upper.csv",sep=""),header=TRUE)
+df.tw.lower <- read.csv(paste(s.district2015_dir,"TW_lower.csv",sep=""),header=TRUE)
+df.tw.upper <- read.csv(paste(s.district2015_dir,"TW_upper.csv",sep=""),header=TRUE)
 
 v.mult_memb_states<- as.factor(c("AZ","NJ","SD","WA"))  ## multi member district states
 v.all.states <- unique(df.tw.lower$abb)
@@ -179,13 +179,21 @@ for (v.ought in 1:10)  {
         
         
         
-        ############# Stop here 5:33 12/9
-        names(rep) <- "LD"; rep$st_hd <- row.names(rep)
-        house.20xx.mm <- merge(house.20xx.mm,rep,by.x="st_hd",by.y="st_hd",all.x=TRUE)
-        names(sen) <- "LD"; sen$st_sd <- row.names(sen)
-        senate.20xx.mm <- merge(senate.20xx.mm,sen,by.x="st_sd",by.y="st_sd",all.x=TRUE)
+        
+        names(v.house.20xx.tmp) <- "LD"; v.house.20xx.tmp$st_hd <- row.names(v.house.20xx.tmp)   
+        df.house.20xx <- merge(df.house.20xx,v.house.20xx.tmp,by.x="st_hd",by.y="st_hd",all.x=TRUE)
+        names(v.senate.20xx.tmp) <- "LD"; v.senate.20xx.tmp$st_hd <- row.names(v.senate.20xx.tmp)   
+        df.senate.20xx <- merge(df.senate.20xx,v.senate.20xx.tmp,by.x="st_hd",by.y="st_hd",all.x=TRUE)
+        
+        
+        ############# Stop here 9:07 12/9
         
       
+        
+        
+        
+        
+        
         ## Eliminate house districts that aren't mm.
         if (FILTER.MM) house.20xx.mm <- house.20xx.mm[house.20xx.mm$LD.y > 1,]
         
