@@ -110,8 +110,6 @@ df.tw.lower <- df.tw.lower[df.tw.lower$abb %in% v.all.states,]
 df.tw.upper <- df.tw.upper[df.tw.upper$abb %in% v.all.states,]
 FILTER.MM <- FALSE   ## A semaphore that indicates whether to use only the four multimember states. 
 
-n.oughts <- as.character(c(2003:2012))
-
 
 ####################################################################################################
 ## 4:  FUNCTION TO GENERATE CONSOLIDATED DATA FRAME AND ADDITIONAL VALUES
@@ -155,7 +153,7 @@ for (v.ought in 1:10)  {
         df.house.20xx$first_term <- is.na(df.house.20xx[[s.prevhcol]])
         df.senate.20xx$first_term <- is.na(df.senate.20xx[[s.prevscol]])
               
-        ## validate states against v.all.states vector, to eliminate DC, Guam, etc.
+        ## validate states against v.all.states vector, to eliminate any records w/o valid state code
         df.house.20xx <- df.house.20xx[df.house.20xx$st %in% v.all.states,]
         df.senate.20xx <- df.senate.20xx[df.senate.20xx$st %in% v.all.states,]
         
@@ -177,10 +175,10 @@ for (v.ought in 1:10)  {
         df.senate.20xx[,s.currscol] <- as.numeric(df.senate.20xx[,s.currscol])
         df.senate.20xx$LD[nchar(df.senate.20xx$LD)==1] <- paste("00",df.senate.20xx$LD[nchar(df.senate.20xx$LD)==1],sep="")
         df.senate.20xx$LD[nchar(df.senate.20xx$LD)==2] <- paste("0",df.senate.20xx$LD[nchar(df.senate.20xx$LD)==2],sep="")
-        df.senate.20xx$st_hd <- paste(df.senate.20xx$st,df.senate.20xx[,"LD"],sep="")
-        v.senate.20xx.tmp  <- tapply(df.senate.20xx[,s.currscol],df.senate.20xx$st_hd,sum)
-        df.senate.20xx.tmp <- cbind.data.frame("st_hd"=names(v.senate.20xx.tmp),"dnum" = as.numeric(v.senate.20xx.tmp))
-        df.senate.20xx <- merge(df.senate.20xx,df.senate.20xx.tmp,by="st_hd")
+        df.senate.20xx$st_sd <- paste(df.senate.20xx$st,df.senate.20xx[,"LD"],sep="")
+        v.senate.20xx.tmp  <- tapply(df.senate.20xx[,s.currscol],df.senate.20xx$st_sd,sum)
+        df.senate.20xx.tmp <- cbind.data.frame("st_sd"=names(v.senate.20xx.tmp),"dnum" = as.numeric(v.senate.20xx.tmp))
+        df.senate.20xx <- merge(df.senate.20xx,df.senate.20xx.tmp,by="st_sd")
         rm(v.senate.20xx.tmp,df.senate.20xx.tmp)      
         
         ## Testing conditions for legislatures that have 3 members or more.  GA, MD, NH, and WV are the relevant ones here
@@ -190,12 +188,18 @@ for (v.ought in 1:10)  {
         ##  to serve.  should work for any number N reps.
         ##  2) keep that np_score or compute the mean.
         
+        ## keep in mind the problem is that members can be from multimember districts, or just more than one over a year.
+        ## create a flag for treated records
+        df.house.20xx$multmem.flag <- FALSE
+        df.senate.20xx$multmem.flag <- FALSE
+        df.house.20xx$multmem.flag[df.house.20xx$dnum > 1 & !df.house.20xx$st %in% v.mult_memb_states] <- TRUE
+        df.house.20xx$multmem.flag[df.house.20xx$dnum > 2 & df.house.20xx$st %in% v.mult_memb_states] <- TRUE
+        df.senate.20xx$multmem.flag[df.senate.20xx$dnum > 1] <- TRUE
         
-        df.house.20xx.mm1 <- df.house.20xx[df.house.20xx$dnum > 1 & !df.house.20xx$st %in% v.mult_memb_states,]
-        df.house.20xx.mm2 <- df.house.20xx[df.house.20xx$dnum > 2 & df.house.20xx$st %in% v.mult_memb_states,]
-        
-        df.house.20xx.mm <- rbind(df.house.20xx.mm1,df.house.20xx.mm2); rm(df.house.20xx.mm1,df.house.20xx.mm2)
+        df.house.20xx.mm <- df.house.20xx[df.house.20xx$multmem.flag,]
+        df.house.20xx <- df.house.20xx[!df.house.20xx$multmem.flag,]
         df.senate.20xx.mm<- df.senate.20xx[df.senate.20xx$dnum > 1,]
+        df.senate.20xx<- df.senate.20xx[!df.senate.20xx$dnum > 1,]
                 
         if(nrow(df.house.20xx.mm > 0)) {
                 
@@ -237,18 +241,23 @@ for (v.ought in 1:10)  {
                                                                              df.house.20xx.mm$st_id %in% df.iter.st_id,]
                         }
                 df.house.20xx.mm$np_score <- df.house.20xx.mm$np_mean
+                df.house.20xx.mm$np_mean <- NULL; df.house.20xx.mm$np_mean <- NULL
+                df.house.20xx <- rbind(df.house.20xx,df.house.20xx.mm)
                 }
-        }                
+        }
+        
+        
+        
         if(nrow(df.senate.20xx.mm > 0)) {
                 
-                v.n2dists <- unique(df.senate.20xx.mm$st_hd)
-                v.senate.20xx.mean_np <- aggregate(np_score ~ st_hd, data=df.senate.20xx.mm, mean)
-                df.senate.20xx.mm <- merge(df.senate.20xx.mm,v.senate.20xx.mean_np,by="st_hd")
+                v.n2dists <- unique(df.senate.20xx.mm$st_sd)
+                v.senate.20xx.mean_np <- aggregate(np_score ~ st_sd, data=df.senate.20xx.mm, mean)
+                df.senate.20xx.mm <- merge(df.senate.20xx.mm,v.senate.20xx.mean_np,by="st_sd")
                 df.senate.20xx.mm <- rename(df.senate.20xx.mm, c("np_score.x"="np_score", "np_score.y"="np_mean"))
                 
                 #eliminate the lowest st_id's
                 ########### 12/10 10:32 working on this section.
-                df.senate.20xx.mm <- df.senate.20xx.mm[order(df.senate.20xx.mm$st_hd,df.senate.20xx.mm$st_id,decreasing=TRUE),]
+                df.senate.20xx.mm <- df.senate.20xx.mm[order(df.senate.20xx.mm$st_sd,df.senate.20xx.mm$st_id,decreasing=TRUE),]
                 ## just take one member.  Need two separate routines (mm and !mm)
                 
                 
@@ -279,78 +288,65 @@ for (v.ought in 1:10)  {
                                                                              df.senate.20xx.mm$st_id %in% df.iter.st_id,]
                         }
                         df.senate.20xx.mm$np_score <- df.senate.20xx.mm$np_mean
-                        
+                        df.senate.20xx.mm$np_mean <- NULL; df.senate.20xx.mm$np_mean <- NULL
+                        df.senate.20xx <- rbind(df.senate.20xx,df.senate.20xx.mm)
                 }
                 
         }        
                 
                
- ################## Now working on this part:  12/10 1:08pm               
-        
-        house.20xx.mm$year <- oyear
-        senate.20xx.mm$year <- oyear
+         
+        rm(df.house.20xx.mm,df.senate.20xx.mm)
+        df.house.20xx$year <- n.oyear
+        df.senate.20xx$year <- n.oyear
 
-        house.20xx.mm <- rename(house.20xx.mm, c(coldist="hdistrict"))
-        senate.20xx.mm <- rename(senate.20xx.mm, c(scoldist="sdistrict"))
+        ### NB:  Rename in plyr does not seem to work with reference variables!!
+        names(df.house.20xx)[names(df.house.20xx)==s.currhcol] <- "hdistrict"
+        names(df.senate.20xx)[names(df.senate.20xx)==s.currscol] <- "sdistrict"       
+        v.drops <- c(s.currhcol, s.currscol, s.prevhdcol, s.prevsdcol, "house2010","senate2010", "np_mean")
         
-        drops <- c("LD.x","LD.y",col,scol,pcol,pscol)
-        house.20xx.mm <- house.20xx.mm[,!(names(house.20xx.mm) %in% drops)]
-        senate.20xx.mm <- senate.20xx.mm[,!(names(senate.20xx.mm) %in% drops)]
-        
-        ## Find and mark blended house districts.
-        house.20xx.mm$ind <- house.20xx.mm$party != "D" & house.20xx.mm$party != "R"
-        
-        house.20xx.mm$party[house.20xx.mm$ind==TRUE & house.20xx.mm$np_score >= 0] <- "R"
-        house.20xx.mm$party[house.20xx.mm$ind & house.20xx.mm$np_score < 0] <- "D"
-        
-        house.20xx.mm <- merge(house.20xx.mm,df.sld2010,by="st_hd")
-        
-        senate.20xx.mm$ind <- senate.20xx.mm$party != "D" & senate.20xx.mm$party != "R"
+        df.house.20xx <- df.house.20xx[,!(names(df.house.20xx) %in% v.drops)]
+        df.senate.20xx <- df.senate.20xx[,!(names(df.senate.20xx) %in% v.drops)]
+               
+        ### Merge with growth data.  We are losing a lot of records at this step.
        
-        senate.20xx.mm$party[senate.20xx.mm$ind==TRUE & senate.20xx.mm$np_score >= 0] <- "R"
-        senate.20xx.mm$party[senate.20xx.mm$ind & senate.20xx.mm$np_score < 0] <- "D"
-        
-        senate.20xx.mm <- merge(senate.20xx.mm,df.sld2010,by.x="st_sd",by.y="st_hd")
-        
-        
-        house.20xx.mm$ind <- house.20xx.mm$party != "D" & house.20xx.mm$party != "R"
-        house.20xx.mm$party[house.20xx.mm$ind==TRUE & house.20xx.mm$np_score >= 0] <- "R"
-        house.20xx.mm$party[house.20xx.mm$ind & house.20xx.mm$np_score < 0] <- "D"
-        senate.20xx.mm$ind <- senate.20xx.mm$party != "D" & senate.20xx.mm$party != "R"
-        senate.20xx.mm$party[senate.20xx.mm$ind==TRUE & senate.20xx.mm$np_score >= 0] <- "R"
-        senate.20xx.mm$party[senate.20xx.mm$ind & senate.20xx.mm$np_score < 0] <- "D"
-        
+        df.house.20xx$ind <- df.house.20xx$party != "D" & df.house.20xx$party != "R"       
+        df.house.20xx$party[df.house.20xx$ind==TRUE & df.house.20xx$np_score >= 0] <- "R"
+        df.house.20xx$party[df.house.20xx$ind & df.house.20xx$np_score < 0] <- "D"
+        df.house.20xx <- merge(df.house.20xx,df.sld2010,by="st_hd")
+               
+        df.senate.20xx$ind <- df.senate.20xx$party != "D" & df.senate.20xx$party != "R"       
+        df.senate.20xx$party[df.senate.20xx$ind==TRUE & df.senate.20xx$np_score >= 0] <- "R"
+        df.senate.20xx$party[df.senate.20xx$ind & df.senate.20xx$np_score < 0] <- "D"        
+        df.senate.20xx <- merge(df.senate.20xx,df.ssd2010,by="st_sd")
        
-        house.party <- table(house.20xx.mm$st_hd,house.20xx.mm$party)
-        senate.party <- table(senate.20xx.mm$st_sd,senate.20xx.mm$party)
+        m.house.party <- table(df.house.20xx$st_hd,df.house.20xx$party)
+        m.senate.party <- table(df.senate.20xx.st_sd,df.senate.20xx$party)
         
-        hh <- as.data.frame(cbind(st_hd = rownames(house.party),house.party))
-        hh$blend <- hh$D==1 & hh$R==1       
-        house.20xx.mm <- merge(house.20xx.mm,hh,by.x="st_hd",by.y="st_hd")
+        m.house.party <- as.data.frame(cbind(st_hd = rownames(m.house.party),m.house.party))
+        m.house.party$blend <- m.house.party$D==1 & m.house.party$R==1       
+        df.house.20xx <- merge(df.house.20xx,m.house.party,by="st_hd"); df.house.20xx$D <- NULL; df.house.20xx$R <- NULL
+        
+        ################# ASSUME SENATE DISTRICTS NEVER HAS BLEND ######################
+        df.senate.20xx$blend <- FALSE
+        ######################################################################
+             
+        df.tw.lower$st_hd <- paste(df.tw.lower$abb,sprintf("%03d",df.tw.lower$ssd_df.fips_num %% 1000),sep="")
+        df.house.20xx <- merge(df.house.20xx,df.tw.lower,by.x="st_hd",by.y="st_hd")
+        df.house.20xx$pres_2008 <- as.numeric(df.house.20xx$pres_2008)
+        df.house.20xx$mrp_estimate <- as.numeric(df.house.20xx$mrp_estimate)
+        df.house.20xx$mrp_se <- as.numeric(df.house.20xx$mrp_se)
+        
+        df.tw.upper$st_sd <- paste(df.tw.upper$abb,sprintf("%03d",df.tw.upper$ssd_df.fips_num %% 1000),sep="")
+        df.tw.upper[df.tw.upper$abb=="AK",]$st_sd <- paste("AK00",str_sub(df.tw.upper[df.tw.upper$abb=="AK",]$ssd_df.fips,-1),sep="")
+        df.senate.20xx <- merge(df.senate.20xx,df.tw.upper,by.x="st_sd",by.y="st_sd")
+        df.senate.20xx$pres_2008 <- as.numeric(df.senate.20xx$pres_2008)
+        df.senate.20xx$mrp_estimate <- as.numeric(df.senate.20xx$mrp_estimate)
+        df.senate.20xx$mrp_se <- as.numeric(df.senate.20xx$mrp_se)
         
         
-        
-        ss <- as.data.frame(cbind(st_sd = rownames(senate.party),senate.party))
-        ss$blend <- ss$D==1 & ss$R==1       
-        senate.20xx.mm <- merge(senate.20xx.mm,ss,by.x="st_sd",by.y="st_sd")
-      
-        tw.lower$st_hd <- paste(tw.lower$abb,sprintf("%03d",tw.lower$ssd_df.fips_num %% 1000),sep="")
-        house.20xx.mm <- merge(house.20xx.mm,tw.lower,by.x="st_hd",by.y="st_hd")
-        house.20xx.mm$pres_2008 <- as.numeric(house.20xx.mm$pres_2008)
-        house.20xx.mm$mrp_estimate <- as.numeric(house.20xx.mm$mrp_estimate)
-        house.20xx.mm$mrp_se <- as.numeric(house.20xx.mm$mrp_se)
-        house.20xx.mm[,coldist] <- NULL
-        
-        tw.upper$st_sd <- paste(tw.upper$abb,sprintf("%03d",tw.upper$ssd_df.fips_num %% 1000),sep="")
-        tw.upper[tw.upper$abb=="AK",]$st_sd <- paste("AK00",str_sub(tw.upper[tw.upper$abb=="AK",]$ssd_df.fips,-1),sep="")
-        senate.20xx.mm <- merge(senate.20xx.mm,tw.upper,by.x="st_sd",by.y="st_sd")
-        senate.20xx.mm$pres_2008 <- as.numeric(senate.20xx.mm$pres_2008)
-        senate.20xx.mm$mrp_estimate <- as.numeric(senate.20xx.mm$mrp_estimate)
-        senate.20xx.mm$mrp_se <- as.numeric(senate.20xx.mm$mrp_se)
-        senate.20xx.mm[,scoldist] <- NULL
-        
-        if (ought==1) house.2000s.mm <- house.20xx.mm else house.2000s.mm <- rbind(house.2000s.mm, house.20xx.mm)
-        if (ought==1) senate.2000s.mm <- senate.20xx.mm else senate.2000s.mm <- rbind(senate.2000s.mm, senate.20xx.mm)
+        if (v.ought==1) df.house.2000s <- df.house.20xx else df.house.2000s <- rbind(df.house.2000s, df.house.20xx)
+        if (v.ought==1) df.senate.2000s <- df.senate.20xx else df.senate.2000s <- rbind(df.senate.2000s, df.senate.20xx)
         
 }       
 
