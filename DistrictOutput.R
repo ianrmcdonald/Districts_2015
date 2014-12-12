@@ -3,7 +3,7 @@
 rm(list=ls())
 
 load("alldata.RData")
-house <- house.2000s.mm; rm(house.2000s.mm); senate <- senate.2000s.mm; rm(senate.2000s.mm)
+house <- df.house.2000s; rm(df.house.2000s); senate <- df.senate.2000s; rm(df.senate.2000s)
 house$party <- as.factor(house$party)
 house$party <- factor(house$party, levels = c("R","D"))
 cutoff <- .1
