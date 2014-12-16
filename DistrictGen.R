@@ -35,6 +35,7 @@ step1 <- function() {
         v.mult_memb_states <<- as.factor(c("AZ","NJ","SD","WA"))  ## multi member district states
         v.all.states <<- unique(df.tw.lower$abb)
         v.non_mult_memb_states <<- v.all.states[!(v.all.states %in% v.mult_memb_states)]
+        v.exclude <<- c("ID","VT","NH","MD")
 }
 step1()
 
@@ -61,39 +62,42 @@ df.ssd2010$fips_ssd_fips <- paste(df.ssd2010$fips,df.ssd2010$district,sep="")
 
 ## lower houses
 df.sld2010$index <- 1
-st_sum <- tapply(df.sld2010$pop2010,df.sld2010$stcd,sum)
-distnums <- as.data.frame(tapply(df.sld2010$index,df.sld2010$stcd,sum)); names(distnums) <- "distnums"
-distnums$stcd <- rownames(distnums)
+v.st_sum <- tapply(df.sld2010$pop2010,df.sld2010$stcd,sum)
+df.distnums.lower <- as.data.frame(tapply(df.sld2010$index,df.sld2010$stcd,sum)); names(df.distnums.lower) <- "distnums"
+df.distnums.lower$stcd <- rownames(df.distnums.lower)
 
-df.pop2000.lower <- merge(distnums,df.pop2000.lower,by="stcd")
+df.pop2000.lower <- merge(df.distnums.lower,df.pop2000.lower,by="stcd",all.x=TRUE)
 df.pop2000.lower$pd <- round(df.pop2000.lower$pop2000 / df.pop2000.lower$distnums,0)  ## 2000 population per lower house district
 
-df.sld2010 <- merge(df.sld2010,df.pop2000.lower,by="stcd")
+df.sld2010 <- merge(df.sld2010,df.pop2000.lower,by="stcd",all.x=TRUE)
 df.sld2010$gpct <- (df.sld2010$pop2010 - df.sld2010$pd) / df.sld2010$pd
 df.sld2010$st_hd <- paste(df.sld2010$stcd,df.sld2010$district,sep="")
 
-# ## something is wrong with New Hampshire; calculation way out of range.  Eliminate for now.
-# df.sld2010NH <- df.sld2010[df.sld2010$stcd=="NH",]
-# df.sld2010 <- df.sld2010[df.sld2010$stcd!="NH",]
-# df.sld2010 <- df.sld2010[df.sld2010$stcd %in% v.all.states,c("st_hd","gpct")]
+# ## these states have issues with district mapping.  Eliminate for now.
+
+df.sld2010EX <- df.sld2010[df.sld2010$stcd %in% v.exclude,]
+df.sld2010 <- df.sld2010[!df.sld2010$stcd %in% v.exclude,]
+df.sld2010 <- df.sld2010[df.sld2010$stcd %in% v.all.states,c("st_hd","gpct")]
 
 ## upper houses
 df.ssd2010$index <- 1
-distnums.upper <- as.data.frame(tapply(df.ssd2010$index,df.ssd2010$stcd,sum)); names(distnums.upper) <- "distnums"
-distnums.upper$stcd <- rownames(distnums.upper)
+v.st_sum <- tapply(df.ssd2010$pop2010,df.ssd2010$stcd,sum)
+df.distnums.upper <- as.data.frame(tapply(df.ssd2010$index,df.ssd2010$stcd,sum)); names(df.distnums.upper) <- "distnums"
+df.distnums.upper$stcd <- rownames(df.distnums.upper)
 
-df.pop2000.upper <- merge(distnums.upper,df.pop2000.upper,by="stcd")
+df.pop2000.upper <- merge(df.distnums.upper,df.pop2000.upper,by="stcd",all.x=TRUE)
 df.pop2000.upper$pd <- round(df.pop2000.upper$pop2000 / df.pop2000.upper$distnums,0)
 
-df.ssd2010 <- merge(df.ssd2010,df.pop2000.upper,by.x="stcd")
+df.ssd2010 <- merge(df.ssd2010,df.pop2000.upper,by="stcd",all.x=TRUE)
 df.ssd2010$gpct <- (df.ssd2010$pop2010 - df.ssd2010$pd) / df.ssd2010$pd
-df.ssd2010$st_sd <- paste(df.ssd2010$stcd,df.ssd2010$district,sep="")
+df.ssd2010$st_hd <- paste(df.ssd2010$stcd,df.ssd2010$district,sep="")
 
-## something is wrong with New Hampshire; calculation way out of range.  Eliminate for now.
-# df.ssd2010NH <- df.ssd2010[df.ssd2010$stcd=="NH",]
-# df.ssd2010 <- df.ssd2010[df.ssd2010$stcd!="NH",]
 
-df.ssd2010 <- df.ssd2010[df.ssd2010$stcd %in% v.all.states,c("st_sd","gpct")]
+# ## these states have issues with district mapping.  Eliminate for now.
+df.ssd2010EX <- df.ssd2010[df.ssd2010$stcd %in% v.exclude,]
+df.ssd2010 <- df.ssd2010[!df.ssd2010$stcd %in% v.exclude,]
+df.ssd2010 <- df.ssd2010[df.ssd2010$stcd %in% v.all.states,c("st_hd","gpct")]
+
 
 ####################################################################################################
 
@@ -119,7 +123,7 @@ FILTER.MM <- FALSE   ## A semaphore that indicates whether to use only the four 
 ## 4:  USE CENSUS GAZETTE DATA TO MAP CENSUS TO DISTRICTS
 ####################################################################################################
 df.gazette <- read.csv("2013_Gaz_sldl_national.csv",header=TRUE)
-df.gazette.1 <- merge(df.gazette,df.fips,by.x="st",by.y="stcd")
+
 df.gazette$sm_name_2 <- paste(df.gazette$st,df.gazette$sm_name_1,sep=":")
 
 
@@ -172,6 +176,7 @@ for (v.ought in 1:10)  {
         
         df.house.20xx$LD <- df.house.20xx[[s.currhdcol]]
         df.senate.20xx$LD <- df.senate.20xx[[s.currsdcol]]
+        
         ##  set columns in Shor McCarty extract.
         
         ## validate number of reps from each district
@@ -181,7 +186,7 @@ for (v.ought in 1:10)  {
         df.house.20xx$st_hd <- paste(df.house.20xx$st,df.house.20xx[,"LD"],sep=":")
         v.house.20xx.tmp  <- tapply(df.house.20xx[,s.currhcol],df.house.20xx$st_hd,sum)
         df.house.20xx.tmp <- cbind.data.frame("st_hd"=names(v.house.20xx.tmp),"dnum" = as.numeric(v.house.20xx.tmp))
-        df.house.20xx <- merge(df.house.20xx,df.house.20xx.tmp,by="st_hd")
+        df.house.20xx <- merge(df.house.20xx,df.house.20xx.tmp,by="st_hd",all.x=TRUE)
         rm(v.house.20xx.tmp,df.house.20xx.tmp)    
         
         ## validate number of senators from each district
@@ -191,7 +196,7 @@ for (v.ought in 1:10)  {
         df.senate.20xx$st_sd <- paste(df.senate.20xx$st,df.senate.20xx[,"LD"],sep="")
         v.senate.20xx.tmp  <- tapply(df.senate.20xx[,s.currscol],df.senate.20xx$st_sd,sum)
         df.senate.20xx.tmp <- cbind.data.frame("st_sd"=names(v.senate.20xx.tmp),"dnum" = as.numeric(v.senate.20xx.tmp))
-        df.senate.20xx <- merge(df.senate.20xx,df.senate.20xx.tmp,by="st_sd")
+        df.senate.20xx <- merge(df.senate.20xx,df.senate.20xx.tmp,by="st_sd",all.x=TRUE)
         rm(v.senate.20xx.tmp,df.senate.20xx.tmp)      
         
         ## Testing conditions for legislatures that have 3 members or more.  GA, MD, NH, and WV are the relevant ones here
@@ -218,7 +223,7 @@ for (v.ought in 1:10)  {
                 
                 v.n2dists <- unique(df.house.20xx.mm$st_hd)
                 v.house.20xx.mean_np <- aggregate(np_score ~ st_hd, data=df.house.20xx.mm, mean)
-                df.house.20xx.mm <- merge(df.house.20xx.mm,v.house.20xx.mean_np,by="st_hd")
+                df.house.20xx.mm <- merge(df.house.20xx.mm,v.house.20xx.mean_np,by="st_hd",all.x=TRUE)
                 df.house.20xx.mm <- rename(df.house.20xx.mm, c("np_score.x"="np_score", "np_score.y"="np_mean"))
                 
                 #eliminate the lowest st_id's
@@ -246,7 +251,7 @@ for (v.ought in 1:10)  {
                 
                 v.n2dists <- unique(df.senate.20xx.mm$st_sd)
                 v.senate.20xx.mean_np <- aggregate(np_score ~ st_sd, data=df.senate.20xx.mm, mean)
-                df.senate.20xx.mm <- merge(df.senate.20xx.mm,v.senate.20xx.mean_np,by="st_sd")
+                df.senate.20xx.mm <- merge(df.senate.20xx.mm,v.senate.20xx.mean_np,by="st_sd",all.x=TRUE)
                 df.senate.20xx.mm <- rename(df.senate.20xx.mm, c("np_score.x"="np_score", "np_score.y"="np_mean"))
                 
                 #eliminate the lowest st_id's
@@ -294,19 +299,16 @@ for (v.ought in 1:10)  {
        
         df.house.20xx$ind <- df.house.20xx$party != "D" & df.house.20xx$party != "R"       
         df.house.20xx$party[df.house.20xx$ind==TRUE & df.house.20xx$np_score >= 0] <- "R"
-        df.house.20xx$party[df.house.20xx$ind & df.house.20xx$np_score < 0] <- "D"
-        
-        df.house.20xx.X <- merge(df.house.20xx,df.gazette,by.x="st_hd",by.y="sm_name_2",all.x=TRUE)
-        View(df.house.20xx.X[is.na(df.house.20xx.X$name.y),])-
-        
-        
-        df.house.20xx <- merge(df.house.20xx,df.sld2010,by="st_hd")
+        df.house.20xx$party[df.house.20xx$ind & df.house.20xx$np_score < 0] <- "D"               
+        df.house.20xx <- merge(df.house.20xx,df.gazette,by.x="st_hd",by.y="sm_name_2",all.x=TRUE)
+        df.house.20xx <- merge(df.house.20xx,df.sld2010,by="st_hd",all.x=TRUE)
         
                
         df.senate.20xx$ind <- df.senate.20xx$party != "D" & df.senate.20xx$party != "R"       
         df.senate.20xx$party[df.senate.20xx$ind==TRUE & df.senate.20xx$np_score >= 0] <- "R"
         df.senate.20xx$party[df.senate.20xx$ind & df.senate.20xx$np_score < 0] <- "D"        
-        df.senate.20xx <- merge(df.senate.20xx,df.ssd2010,by="st_sd")
+        df.senate.20xx <- merge(df.senate.20xx,df.gazette,by.x="st_sd",by.y="sm_name_2",all.x=TRUE)
+        df.senate.20xx <- merge(df.senate.20xx,df.ssd2010,by.x="st_sd",by.y="st_hd",all.x=TRUE)
        
         m.house.party <- table(df.house.20xx$st_hd,df.house.20xx$party)
         m.senate.party <- table(df.senate.20xx$st_sd,df.senate.20xx$party)
@@ -320,14 +322,14 @@ for (v.ought in 1:10)  {
         ######################################################################
              
         df.tw.lower$st_hd <- paste(df.tw.lower$abb,sprintf("%03d",df.tw.lower$ssd_fips_num %% 1000),sep="")
-        df.house.20xx <- merge(df.house.20xx,df.tw.lower,by.x="st_hd",by.y="st_hd")
+        df.house.20xx <- merge(df.house.20xx,df.tw.lower,by.x="st_hd",by.y="st_hd",all.x=TRUE)
         df.house.20xx$pres_2008 <- as.numeric(df.house.20xx$pres_2008)
         df.house.20xx$mrp_estimate <- as.numeric(df.house.20xx$mrp_estimate)
         df.house.20xx$mrp_se <- as.numeric(df.house.20xx$mrp_se)
         
         df.tw.upper$st_sd <- paste(df.tw.upper$abb,sprintf("%03d",df.tw.upper$ssd_fips_num %% 1000),sep="")
         df.tw.upper[df.tw.upper$abb=="AK",]$st_sd <- paste("AK00",str_sub(df.tw.upper[df.tw.upper$abb=="AK",]$ssd_df.fips,-1),sep="")
-        df.senate.20xx <- merge(df.senate.20xx,df.tw.upper,by.x="st_sd",by.y="st_sd")
+        df.senate.20xx <- merge(df.senate.20xx,df.tw.upper,by.x="st_sd",by.y="st_sd",all.x=TRUE)
         df.senate.20xx$pres_2008 <- as.numeric(df.senate.20xx$pres_2008)
         df.senate.20xx$mrp_estimate <- as.numeric(df.senate.20xx$mrp_estimate)
         df.senate.20xx$mrp_se <- as.numeric(df.senate.20xx$mrp_se)
