@@ -5,13 +5,15 @@
 
 ##  Iniitialize.  Note that workspace is cleared.
 library(foreign)
-library(Hmisc)
+
 library(data.table)
 library(dplyr)
 library(ggplot2)
+
 library(zoo)
 library(reshape)
 library(stringr)
+
 library(lme4)
 
 
@@ -50,8 +52,9 @@ df.fips <- read.csv("fips.csv")
 df.pop2000.lower <- read.csv("pop2000.csv")      ## total population by state for 2000
 df.pop2000.upper <- df.pop2000.lower                ## clone the pop.2000 file and use for upper houses
 df.sld2010 <- read.csv("lower2010.csv")    ## population by lower house district 2010 ACS
+df.sld2010$ssd_fips <- paste(df.sld2010$fips,df.sld2010$district,sep="")
 df.ssd2010 <- read.csv("upper2010.csv") #  # population by upper house district 2010 ACS
-
+df.ssd2010$fips_ssd_fips <- paste(df.ssd2010$fips,df.ssd2010$district,sep="")
 
 ## determine number of districts per state and use as baseline in population growth percentage calculation
 ## house
@@ -69,10 +72,10 @@ df.sld2010 <- merge(df.sld2010,df.pop2000.lower,by="stcd")
 df.sld2010$gpct <- (df.sld2010$pop2010 - df.sld2010$pd) / df.sld2010$pd
 df.sld2010$st_hd <- paste(df.sld2010$stcd,df.sld2010$district,sep="")
 
-## something is wrong with New Hampshire; calculation way out of range.  Eliminate for now.
-df.sld2010NH <- df.sld2010[df.sld2010$stcd=="NH",]
-df.sld2010 <- df.sld2010[df.sld2010$stcd!="NH",]
-df.sld2010 <- df.sld2010[df.sld2010$stcd %in% v.all.states,c("st_hd","gpct")]
+# ## something is wrong with New Hampshire; calculation way out of range.  Eliminate for now.
+# df.sld2010NH <- df.sld2010[df.sld2010$stcd=="NH",]
+# df.sld2010 <- df.sld2010[df.sld2010$stcd!="NH",]
+# df.sld2010 <- df.sld2010[df.sld2010$stcd %in% v.all.states,c("st_hd","gpct")]
 
 ## upper houses
 df.ssd2010$index <- 1
@@ -87,8 +90,8 @@ df.ssd2010$gpct <- (df.ssd2010$pop2010 - df.ssd2010$pd) / df.ssd2010$pd
 df.ssd2010$st_sd <- paste(df.ssd2010$stcd,df.ssd2010$district,sep="")
 
 ## something is wrong with New Hampshire; calculation way out of range.  Eliminate for now.
-df.ssd2010NH <- df.ssd2010[df.ssd2010$stcd=="NH",]
-df.ssd2010 <- df.ssd2010[df.ssd2010$stcd!="NH",]
+# df.ssd2010NH <- df.ssd2010[df.ssd2010$stcd=="NH",]
+# df.ssd2010 <- df.ssd2010[df.ssd2010$stcd!="NH",]
 
 df.ssd2010 <- df.ssd2010[df.ssd2010$stcd %in% v.all.states,c("st_sd","gpct")]
 
@@ -112,9 +115,16 @@ df.tw.lower <- df.tw.lower[df.tw.lower$abb %in% v.all.states,]
 df.tw.upper <- df.tw.upper[df.tw.upper$abb %in% v.all.states,]
 FILTER.MM <- FALSE   ## A semaphore that indicates whether to use only the four multimember states. 
 
+####################################################################################################
+## 4:  USE CENSUS GAZETTE DATA TO MAP CENSUS TO DISTRICTS
+####################################################################################################
+df.gazette <- read.csv("2013_Gaz_sldl_national.csv",header=TRUE)
+df.gazette.1 <- merge(df.gazette,df.fips,by.x="st",by.y="stcd")
+df.gazette$sm_name_2 <- paste(df.gazette$st,df.gazette$sm_name_1,sep=":")
+
 
 ####################################################################################################
-## 4:  FUNCTION TO GENERATE CONSOLIDATED DATA FRAME AND ADDITIONAL VALUES
+## 5:  FUNCTION TO GENERATE CONSOLIDATED DATA FRAME AND ADDITIONAL VALUES
 ####################################################################################################
 
 ## Column specifications for the Shor McCarty table
@@ -145,11 +155,13 @@ for (v.ought in 1:10)  {
         
         ## select relevant columns  filter out any potential NA's
         df.house.20xx <- df.leg.scores[df.leg.scores[[s.currhdcol]] != "NA", c(1:5,n.hc1,n.hc2,n.hc2-2)]
+        
         df.senate.20xx <- df.leg.scores[df.leg.scores[[s.currsdcol]] != "NA", c(1:5,n.sc1,n.sc2,n.sc2-4)]
        
         ## clean up spaces in s.currhcol and s.currscol
         df.house.20xx[,s.currhcol] <- substr(df.house.20xx[,s.currhcol],1,3)
         df.senate.20xx[,s.currscol] <- substr(df.senate.20xx[,s.currscol],1,3)
+        
         
         df.house.20xx$first_term <- is.na(df.house.20xx[[s.prevhcol]])
         df.senate.20xx$first_term <- is.na(df.senate.20xx[[s.prevscol]])
@@ -166,7 +178,7 @@ for (v.ought in 1:10)  {
         df.house.20xx[,s.currhcol] <- as.numeric(df.house.20xx[,s.currhcol])
         df.house.20xx$LD[nchar(df.house.20xx$LD)==1] <- paste("00",df.house.20xx$LD[nchar(df.house.20xx$LD)==1],sep="")
         df.house.20xx$LD[nchar(df.house.20xx$LD)==2] <- paste("0",df.house.20xx$LD[nchar(df.house.20xx$LD)==2],sep="")
-        df.house.20xx$st_hd <- paste(df.house.20xx$st,df.house.20xx[,"LD"],sep="")
+        df.house.20xx$st_hd <- paste(df.house.20xx$st,df.house.20xx[,"LD"],sep=":")
         v.house.20xx.tmp  <- tapply(df.house.20xx[,s.currhcol],df.house.20xx$st_hd,sum)
         df.house.20xx.tmp <- cbind.data.frame("st_hd"=names(v.house.20xx.tmp),"dnum" = as.numeric(v.house.20xx.tmp))
         df.house.20xx <- merge(df.house.20xx,df.house.20xx.tmp,by="st_hd")
@@ -271,17 +283,25 @@ for (v.ought in 1:10)  {
         ### NB:  Rename in plyr does not seem to work with reference variables!!
         names(df.house.20xx)[names(df.house.20xx)==s.currhcol] <- "hdistrict"
         names(df.senate.20xx)[names(df.senate.20xx)==s.currscol] <- "sdistrict"       
-        v.drops <- c(s.currhcol, s.currscol, s.currhdcol, s.currsdcol, s.prevhcol, s.prevscol, s.prevhdcol, s.prevsdcol, "house2010","senate2010", "np_mean")
+        v.drops <- c(s.currhcol, s.currscol, s.currhdcol, s.currsdcol, s.prevhcol, s.prevscol, s.prevhdcol, s.prevsdcol, 
+                     "house2010","senate2010","np_mean")
         
         df.house.20xx <- df.house.20xx[,!(names(df.house.20xx) %in% v.drops)]
         df.senate.20xx <- df.senate.20xx[,!(names(df.senate.20xx) %in% v.drops)]
                
         ### Merge with growth data.  We are losing a lot of records at this step.
+        
        
         df.house.20xx$ind <- df.house.20xx$party != "D" & df.house.20xx$party != "R"       
         df.house.20xx$party[df.house.20xx$ind==TRUE & df.house.20xx$np_score >= 0] <- "R"
         df.house.20xx$party[df.house.20xx$ind & df.house.20xx$np_score < 0] <- "D"
+        
+        df.house.20xx.X <- merge(df.house.20xx,df.gazette,by.x="st_hd",by.y="sm_name_2",all.x=TRUE)
+        View(df.house.20xx.X[is.na(df.house.20xx.X$name.y),])-
+        
+        
         df.house.20xx <- merge(df.house.20xx,df.sld2010,by="st_hd")
+        
                
         df.senate.20xx$ind <- df.senate.20xx$party != "D" & df.senate.20xx$party != "R"       
         df.senate.20xx$party[df.senate.20xx$ind==TRUE & df.senate.20xx$np_score >= 0] <- "R"
