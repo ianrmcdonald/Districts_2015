@@ -7,6 +7,13 @@ DATA:
 1.  Population: Fix the per district New Hampshire data
 2.  Population: Verify the correct number of districts per state for both chambers.
 
-Still have not cleaned up codes.  Need to add Seante and table a list of excluded states. Need a Senate Gazette.
+Still have not cleaned up codes.  Need to add Seante and table a list of excluded states. 
+
+!!!!Need a Senate Gazette.!!!!
 
 Rework the structure some more.
+
+12/16/14:  Still significant gaps in the SM dataset. For instance, only picking up 47 of 60 OR house districts
+in 2012.  Need to catalog these gaps.  How do we plug them?
+
+del <- df.house.2000s[is.na(df.house.2000s$mrp_estimate),]
