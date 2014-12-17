@@ -54,56 +54,59 @@ step1()
 ## Reference information is contained in State Leg Population 2010.xls
 ####################################################################################################
 
-df.fips <- read.csv("fips.csv")
-df.pop2000.lower <- read.csv("pop2000.csv",stringsAsFactors=FALSE)      ## total population by state for 2000
-df.pop2000.upper <- df.pop2000.lower                ## clone the pop.2000 file and use for upper houses
-df.sld2010 <- read.csv("lower2010.csv",stringsAsFactors=FALSE)    ## population by lower house district 2010 ACS
-df.sld2010$sld_fips <- paste(df.sld2010$fips,df.sld2010$district,sep="")
-df.ssd2010 <- read.csv("upper2010.csv",stringsAsFactors=FALSE) #  # population by upper house district 2010 ACS
-df.ssd2010$ssd_fips <- paste(df.ssd2010$fips,df.ssd2010$district,sep="")
+step2 <- function() {
+        df.fips <<- read.csv("fips.csv")
+        df.pop2000.lower <<- read.csv("pop2000.csv",stringsAsFactors=FALSE)      ## total population by state for 2000
+        df.pop2000.upper <<- df.pop2000.lower                ## clone the pop.2000 file and use for upper houses
+        df.sld2010 <<- read.csv("lower2010.csv",stringsAsFactors=FALSE)    ## population by lower house district 2010 ACS
+        df.sld2010$sld_fips <<- paste(df.sld2010$fips,df.sld2010$district,sep="")
+        df.ssd2010 <<- read.csv("upper2010.csv",stringsAsFactors=FALSE) #  # population by upper house district 2010 ACS
+        df.ssd2010$ssd_fips <<- paste(df.ssd2010$fips,df.ssd2010$district,sep="")
+        
+        
+        ## determine number of districts per state and use as baseline in population growth percentage calculation
+        ## house
+        
+        ## lower houses
+        df.sld2010$index <<- 1
+        v.st_sum <<- tapply(df.sld2010$pop2010,df.sld2010$stcd,sum)
+        df.distnums.lower <<- as.data.frame(tapply(df.sld2010$index,df.sld2010$stcd,sum)); names(df.distnums.lower) <<- "distnums"
+        df.distnums.lower$stcd <<- rownames(df.distnums.lower)
+        
+        df.pop2000.lower <<- merge(df.distnums.lower,df.pop2000.lower,by="stcd",all.x=TRUE)
+        df.pop2000.lower$pd <<- round(df.pop2000.lower$pop2000 / df.pop2000.lower$distnums,0)  ## 2000 population per lower house district
+        
+        df.sld2010 <<- merge(df.sld2010,df.pop2000.lower,by="stcd",all.x=TRUE)
+        df.sld2010$gpct <<- (df.sld2010$pop2010 - df.sld2010$pd) / df.sld2010$pd
+        df.sld2010$st_hd <<- paste(df.sld2010$stcd,df.sld2010$district,sep="")
+        df.sld2010$st_hd <<- paste(df.sld2010$stcd,df.sld2010$district,sep=":")
+        # ## these states have issues with district mapping.  Eliminate for now.
+        
+        df.sld2010EX <<- df.sld2010[df.sld2010$stcd %in% v.exclude,]
+        df.sld2010 <<- df.sld2010[!df.sld2010$stcd %in% v.exclude,]
+        df.sld2010 <<- df.sld2010[df.sld2010$stcd %in% v.all.states,c("st_hd","gpct")]
+        
+        ## upper houses
+        df.ssd2010$index <<- 1
+        v.st_sum <<- tapply(df.ssd2010$pop2010,df.ssd2010$stcd,sum)
+        df.distnums.upper <<- as.data.frame(tapply(df.ssd2010$index,df.ssd2010$stcd,sum)); names(df.distnums.upper) <<- "distnums"
+        df.distnums.upper$stcd <<- rownames(df.distnums.upper)
+        
+        df.pop2000.upper <<- merge(df.distnums.upper,df.pop2000.upper,by="stcd",all.x=TRUE)
+        df.pop2000.upper$pd <<- round(df.pop2000.upper$pop2000 / df.pop2000.upper$distnums,0)
+        
+        df.ssd2010 <<- merge(df.ssd2010,df.pop2000.upper,by="stcd",all.x=TRUE)
+        df.ssd2010$gpct <<- (df.ssd2010$pop2010 - df.ssd2010$pd) / df.ssd2010$pd
+        df.ssd2010$st_sd <<- paste(df.ssd2010$stcd,df.ssd2010$district,sep=":")
+        
+        
+        # ## these states have issues with district mapping.  Eliminate for now.
+        df.ssd2010EX <<- df.ssd2010[df.ssd2010$stcd %in% v.exclude,]
+        df.ssd2010 <<- df.ssd2010[!df.ssd2010$stcd %in% v.exclude,]
+        df.ssd2010 <<- df.ssd2010[df.ssd2010$stcd %in% v.all.states,c("st_sd","gpct")]
 
-## determine number of districts per state and use as baseline in population growth percentage calculation
-## house
-
-## lower houses
-df.sld2010$index <- 1
-v.st_sum <- tapply(df.sld2010$pop2010,df.sld2010$stcd,sum)
-df.distnums.lower <- as.data.frame(tapply(df.sld2010$index,df.sld2010$stcd,sum)); names(df.distnums.lower) <- "distnums"
-df.distnums.lower$stcd <- rownames(df.distnums.lower)
-
-df.pop2000.lower <- merge(df.distnums.lower,df.pop2000.lower,by="stcd",all.x=TRUE)
-df.pop2000.lower$pd <- round(df.pop2000.lower$pop2000 / df.pop2000.lower$distnums,0)  ## 2000 population per lower house district
-
-df.sld2010 <- merge(df.sld2010,df.pop2000.lower,by="stcd",all.x=TRUE)
-df.sld2010$gpct <- (df.sld2010$pop2010 - df.sld2010$pd) / df.sld2010$pd
-df.sld2010$st_hd <- paste(df.sld2010$stcd,df.sld2010$district,sep="")
-df.sld2010$st_hd <- paste(df.sld2010$stcd,df.sld2010$district,sep=":")
-# ## these states have issues with district mapping.  Eliminate for now.
-
-df.sld2010EX <- df.sld2010[df.sld2010$stcd %in% v.exclude,]
-df.sld2010 <- df.sld2010[!df.sld2010$stcd %in% v.exclude,]
-df.sld2010 <- df.sld2010[df.sld2010$stcd %in% v.all.states,c("st_hd","gpct")]
-
-## upper houses
-df.ssd2010$index <- 1
-v.st_sum <- tapply(df.ssd2010$pop2010,df.ssd2010$stcd,sum)
-df.distnums.upper <- as.data.frame(tapply(df.ssd2010$index,df.ssd2010$stcd,sum)); names(df.distnums.upper) <- "distnums"
-df.distnums.upper$stcd <- rownames(df.distnums.upper)
-
-df.pop2000.upper <- merge(df.distnums.upper,df.pop2000.upper,by="stcd",all.x=TRUE)
-df.pop2000.upper$pd <- round(df.pop2000.upper$pop2000 / df.pop2000.upper$distnums,0)
-
-df.ssd2010 <- merge(df.ssd2010,df.pop2000.upper,by="stcd",all.x=TRUE)
-df.ssd2010$gpct <- (df.ssd2010$pop2010 - df.ssd2010$pd) / df.ssd2010$pd
-df.ssd2010$st_sd <- paste(df.ssd2010$stcd,df.ssd2010$district,sep=":")
-
-
-# ## these states have issues with district mapping.  Eliminate for now.
-df.ssd2010EX <- df.ssd2010[df.ssd2010$stcd %in% v.exclude,]
-df.ssd2010 <- df.ssd2010[!df.ssd2010$stcd %in% v.exclude,]
-df.ssd2010 <- df.ssd2010[df.ssd2010$stcd %in% v.all.states,c("st_sd","gpct")]
-
-
+}
+step2()
 ####################################################################################################
 
 
@@ -115,13 +118,19 @@ df.ssd2010 <- df.ssd2010[df.ssd2010$stcd %in% v.all.states,c("st_sd","gpct")]
 ####################################################################################################
 
 ## create legislator scores
-load("state legislator scores july 2014.RData") ## data appears in df "x"
-df.leg.scores <- x
-rm(x)
+load.legislator.scores <- function() {
+        load("state legislator scores july 2014.RData") ## data appears in df "x"
+        df.leg.scores <- x
+        rm(x)
+        df.leg.scores.EX <<- df.leg.scores[df.leg.scores$st %in% v.exclude,]
+        df.leg.scores <<- df.leg.scores[!df.leg.scores$st %in% v.exclude,]
+}
+load.legislator.scores()
+
 
 ## Edit for exclusions of states
-df.leg.scores.EX <- df.leg.scores[df.leg.scores$st %in% v.exclude,]
-df.leg.scores <- df.leg.scores[!df.leg.scores$st %in% v.exclude,]
+
+
 
 
 
