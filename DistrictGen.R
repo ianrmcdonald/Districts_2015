@@ -29,8 +29,10 @@ setwd(s.district2015_dir)
 ####################################################################################################
 
 step1 <- function() {
-        df.tw.lower <<- read.csv(paste(s.district2015_dir,"TW_lower.csv",sep=""),header=TRUE)
-        df.tw.upper <<- read.csv(paste(s.district2015_dir,"TW_upper.csv",sep=""),header=TRUE)
+        df.tw.lower <<- read.csv(paste(s.district2015_dir,"TW_lower.csv",sep=""),stringsAsFactors=FALSE,header=TRUE)
+        df.tw.upper <<- read.csv(paste(s.district2015_dir,"TW_upper.csv",sep=""),stringsAsFactors=FALSE,header=TRUE)
+        #df.tw.lower <<- read.csv(paste(s.district2015_dir,"TW_lower.csv",sep=""),stringsAsFactors=TRUE,header=TRUE)
+        #df.tw.upper <<- read.csv(paste(s.district2015_dir,"TW_upper.csv",sep=""),stringsAsFactors=TRUE,header=TRUE)
         
         v.mult_memb_states <<- as.factor(c("AZ","NJ","SD","WA"))  ## multi member district states
         v.all.states <<- unique(df.tw.lower$abb)
@@ -149,7 +151,7 @@ n.sc2.init <- 58
 
 
 for (v.ought in 1:10)  {
-        if(v.ought==7) browser()
+        
         ##  set columns in Shor McCarty extract.
         n.hc1 <- n.hc1.init + v.ought - 1
         n.hc2 <- n.hc2.init + v.ought - 1 
@@ -185,6 +187,10 @@ for (v.ought in 1:10)  {
         df.sld2010[df.sld2010$st_hd =="SD26A","st_hd"] <- "SD026"
         df.sld2010[df.sld2010$st_hd =="SD28A","st_hd"] <- "SD028"
         
+        ## CASE 3:  Idaho
+        ## Data intermittently includes a "-1" or "-2" at the end of district id, but not always
+        df.house.20xx[df.house.20xx$st=="ID",s.currhdcol] <- substr(df.house.20xx[df.house.20xx$st=="ID",s.currhdcol],1,3)
+        df.senate.20xx[df.senate.20xx$st=="ID",s.currsdcol] <- substr(df.senate.20xx[df.senate.20xx$st=="ID",s.currsdcol],1,3)
         
         df.house.20xx$first_term <- is.na(df.house.20xx[[s.prevhcol]])
         df.senate.20xx$first_term <- is.na(df.senate.20xx[[s.prevscol]])
@@ -321,7 +327,14 @@ for (v.ought in 1:10)  {
        
         df.house.20xx$ind <- df.house.20xx$party != "D" & df.house.20xx$party != "R"       
         df.house.20xx$party[df.house.20xx$ind==TRUE & df.house.20xx$np_score >= 0] <- "R"
-        df.house.20xx$party[df.house.20xx$ind & df.house.20xx$np_score < 0] <- "D"               
+        df.house.20xx$party[df.house.20xx$ind & df.house.20xx$np_score < 0] <- "D" 
+       
+        if(n.oyear >= 2009) {
+                v.mn1 <- df.gazette[df.gazette$st=="MN",c("sm_name_1")]
+                v.mn1 <- substr(v.mn1,2,nchar(v.mn1))
+                df.gazette[df.gazette$st=="MN",c("sm_name_1")] <- v.mn1
+        }
+        
         df.house.20xx <- merge(df.house.20xx,df.gazette,by.x="st_hd",by.y="sm_name_2",all.x=TRUE)
         df.house.20xx <- merge(df.house.20xx,df.sld2010,by="st_hd",all.x=TRUE)
         
@@ -346,10 +359,20 @@ for (v.ought in 1:10)  {
         
         
         df.tw.lower$st_hd <- paste(df.tw.lower$abb,sprintf("%03d",df.tw.lower$ssd_fips_num %% 1000),sep=":")
+        df.mn <- df.tw.lower[df.tw.lower$abb=="MN",c("ssd_fips","st_hd")]
+        if(n.oyear >= 2009) {
+                df.mn$st_hd <- paste("MN:",substr(df.mn$ssd_fips,nchar(df.mn$ssd_fips)-2,nchar(df.mn$ssd_fips)),sep="")
+        } else {
+                df.mn$st_hd <- paste("MN:0",substr(df.mn$ssd_fips,nchar(df.mn$ssd_fips)-2,nchar(df.mn$ssd_fips)),sep="") 
+        }
+        
+        df.tw.lower[df.tw.lower$abb=="MN","st_hd"] <- df.mn$st_hd
+        
+        #df.tw.lower[df.tw.lower$abb=="MN"]$st_hd <- paste(df.tw.lower[df.tw.lower$abb=="MN"]$st_hd,substr(, nchar(x)-n+1, nchar(x))
         #df.tw.lower <- merge(df.tw.lower, df.gazette, by.x="st_hd",by.y="sm_name_2",all.x=TRUE)
         
         ## Create a lookup field for the gazette
-        df.house.20xx <- merge(df.house.20xx,df.tw.lower,by.x="st_hd",by.y="st_hd",all.x=TRUE)  
+        df.house.20xx <-merge(df.house.20xx,df.tw.lower,by.x="st_hd",by.y="st_hd",all.x=TRUE)  
         df.house.20xx$pres_2008 <- as.numeric(df.house.20xx$pres_2008)
         df.house.20xx$mrp_estimate <- as.numeric(df.house.20xx$mrp_estimate)
         df.house.20xx$mrp_se <- as.numeric(df.house.20xx$mrp_se)
@@ -358,11 +381,7 @@ for (v.ought in 1:10)  {
         df.tw.upper <- df.tw.upper  ## Need to replicate gazette process for house
         df.tw.upper[df.tw.upper$abb=="AK",]$st_sd <- paste("AK00",str_sub(df.tw.upper[df.tw.upper$abb=="AK",]$ssd_df.fips,-1),sep="")
         df.senate.20xx <- merge(df.senate.20xx,df.tw.upper,by.x="st_sd",by.y="st_sd",all.x=TRUE)  ## NOT MERGING WITH GAZETTE!!!! (12/16)
-        df.senate.20xx$pres_2008 <- as.numeric(df.senate.20xx$pres_2008)
-        df.senate.20xx$mrp_estimate <- as.numeric(df.senate.20xx$mrp_estimate)
-        df.senate.20xx$mrp_se <- as.numeric(df.senate.20xx$mrp_se)
-        
-        
+             
         if (v.ought==1) df.house.2000s <- df.house.20xx else df.house.2000s <- rbind(df.house.2000s, df.house.20xx)
         if (v.ought==1) df.senate.2000s <- df.senate.20xx else df.senate.2000s <- rbind(df.senate.2000s, df.senate.20xx)
         
@@ -372,5 +391,6 @@ for (v.ought in 1:10)  {
 save(df.senate.2000s, df.house.2000s,v.mult_memb_states, v.all.states, v.non_mult_memb_states, file= "alldata.RData")
 
 #######################################################################
-
+del <- df.house.2000s[is.na(df.house.2000s$mrp_estimate),]
+View(df.house.2000s[df.house.2000s$st.x=="MN",])
 

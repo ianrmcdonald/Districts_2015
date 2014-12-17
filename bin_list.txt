@@ -16,4 +16,4 @@ Rework the structure some more.
 12/16/14:  Still significant gaps in the SM dataset. For instance, only picking up 47 of 60 OR house districts
 in 2012.  Need to catalog these gaps.  How do we plug them?
 
-del <- df.house.2000s[is.na(df.house.2000s$mrp_estimate),]
+12/16/14:  Fewer gaps now.  Excluding MA, VT, NH:  down to 20 misses (SD and WV)
