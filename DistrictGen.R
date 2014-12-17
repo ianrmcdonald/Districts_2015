@@ -5,56 +5,54 @@
 
 ##  Iniitialize.  Note that workspace is cleared.
 library(foreign)
-
-library(data.table)
 library(dplyr)
-library(ggplot2)
-
-library(zoo)
 library(reshape)
-library(stringr)
-
-library(lme4)
 
 
 rm(list=ls())
-s.district2015_dir <- "/Users/irm16/Dropbox/Work Projects/SPSA 2015/Source/"
-setwd(s.district2015_dir)
 
-####################################################################################################
-## 1:  READ AND CLEAN THE TAUSONOVITCH AND WARSHAW DATA.  
-## NB:  The downloaded csv files were modified to include Washington State 2008 president %'s
-## The original names are shd_mrp_export.csv and ssd_export.csv.
-## Reference information is contained in TW.xlsx
-####################################################################################################
+set.district2015.dir <- function(dir.name) {
+        s.district2015_dir <<- dir.name
+        setwd(s.district2015_dir)
+}
+set.district2015.dir("/Users/irm16/Dropbox/Work Projects/SPSA 2015/Source/")
 
-step1 <- function() {
-        df.tw.lower <<- read.csv(paste(s.district2015_dir,"TW_lower.csv",sep=""),stringsAsFactors=FALSE,header=TRUE)
-        df.tw.upper <<- read.csv(paste(s.district2015_dir,"TW_upper.csv",sep=""),stringsAsFactors=FALSE,header=TRUE)
-        #df.tw.lower <<- read.csv(paste(s.district2015_dir,"TW_lower.csv",sep=""),stringsAsFactors=TRUE,header=TRUE)
-        #df.tw.upper <<- read.csv(paste(s.district2015_dir,"TW_upper.csv",sep=""),stringsAsFactors=TRUE,header=TRUE)
+read.and.initialize.1 <- function(f.TW.lower, f.TW.upper, f.gazette, 
+                                  MM=c("AZ","NJ","SD","WA"), EX=c("VT","NH","MD","MA")) {       
+        ####################################################################################################
+        ## 1:  READ AND CLEAN THE TAUSONOVITCH AND WARSHAW DATA.  
+        ## NB:  The downloaded csv files were modified to include Washington State 2008 president %'s
+        ## The original names are shd_mrp_export.csv and ssd_export.csv.
+        ## Reference information is contained in TW.xlsx
+        ####################################################################################################
         
-        v.mult_memb_states <<- as.factor(c("AZ","NJ","SD","WA"))  ## multi member district states
+        df.tw.lower <- read.csv(paste(s.district2015_dir, f.TW.lower, sep=""), stringsAsFactors=FALSE, header=TRUE)
+        df.tw.upper <- read.csv(paste(s.district2015_dir, f.TW.upper, sep=""), stringsAsFactors=FALSE, header=TRUE)
+       
+        v.mult_memb_states <<- as.factor(MM)  ## multi member district states
         v.all.states <<- unique(df.tw.lower$abb)
         v.non_mult_memb_states <<- v.all.states[!(v.all.states %in% v.mult_memb_states)]
-        v.exclude <<- c("VT","NH","MD","MA")
+        v.exclude <<- EX
         
-        ## DEBUGGING
-        #v.exclude <<- v.all.states[v.all.states != "MN"]
+        df.tw.lower <<- df.tw.lower[df.tw.lower$abb %in% v.all.states,]
+        df.tw.upper <<- df.tw.upper[df.tw.upper$abb %in% v.all.states,]
+        
+        df.gazette <<- read.csv(f.gazette, stringsAsFactors=FALSE, header=TRUE)
+        df.gazette$sm_name_2 <<- paste(df.gazette$st, df.gazette$sm_name_1, sep=":")
+        
+        ## Column specifications for the Shor McCarty table
+        n.hc1.init <<- 37
+        n.hc2.init <<- 79
+        n.sc1.init <<- 16
+        n.sc2.init <<- 58
 }
-step1()
-
-####################################################################################################
-
-
-
-
-####################################################################################################
-## 2:  READ CENSUS POPULATION DATA 
-## Reference information is contained in State Leg Population 2010.xls
-####################################################################################################
-
-step2 <- function() {
+read.and.initialize.2 <- function() {
+        
+        ####################################################################################################
+        ## 2:  READ CENSUS POPULATION DATA 
+        ## Reference information is contained in State Leg Population 2010.xls
+        ####################################################################################################
+        
         df.fips <<- read.csv("fips.csv")
         df.pop2000.lower <<- read.csv("pop2000.csv",stringsAsFactors=FALSE)      ## total population by state for 2000
         df.pop2000.upper <<- df.pop2000.lower                ## clone the pop.2000 file and use for upper houses
@@ -106,60 +104,22 @@ step2 <- function() {
         df.ssd2010 <<- df.ssd2010[df.ssd2010$stcd %in% v.all.states,c("st_sd","gpct")]
 
 }
-step2()
-####################################################################################################
-
-
-####################################################################################################
-## 3:  CREATE LEGISLATOR SCORES FROM SHOR & MCCARTY
-## Downloaded from Harvard Dataverse:  
-## Shor, Boris; McCarty, Nolan, 2014, "Individual State Legislator Shor-McCarty Ideology Data, July 2014 update"
-## http://goo.gl/qPGnqn
-####################################################################################################
-
-## create legislator scores
 load.legislator.scores <- function() {
+        
+        ####################################################################################################
+        ## 3:  CREATE LEGISLATOR SCORES FROM SHOR & MCCARTY
+        ## Downloaded from Harvard Dataverse:  
+        ## Shor, Boris; McCarty, Nolan, 2014, "Individual State Legislator Shor-McCarty Ideology Data, July 2014 update"
+        ## http://goo.gl/qPGnqn
+        ####################################################################################################
+        
         load("state legislator scores july 2014.RData") ## data appears in df "x"
         df.leg.scores <- x
         rm(x)
         df.leg.scores.EX <<- df.leg.scores[df.leg.scores$st %in% v.exclude,]
         df.leg.scores <<- df.leg.scores[!df.leg.scores$st %in% v.exclude,]
 }
-load.legislator.scores()
-
-
-## Edit for exclusions of states
-
-
-
-
-
-df.tw.lower <- df.tw.lower[df.tw.lower$abb %in% v.all.states,]
-df.tw.upper <- df.tw.upper[df.tw.upper$abb %in% v.all.states,]
-FILTER.MM <- FALSE   ## A semaphore that indicates whether to use only the four multimember states. 
-
-####################################################################################################
-## 4:  USE CENSUS GAZETTE DATA TO MAP CENSUS TO DISTRICTS
-####################################################################################################
-df.gazette <- read.csv("2013_Gaz_sldl_national.csv",stringsAsFactors=FALSE,header=TRUE)
-df.gazette$sm_name_2 <- paste(df.gazette$st,df.gazette$sm_name_1,sep=":")
-
-##  Merge with gazette records
-
-
-
-####################################################################################################
-## 5:  FUNCTION TO GENERATE CONSOLIDATED DATA FRAME AND ADDITIONAL VALUES
-####################################################################################################
-
-## Column specifications for the Shor McCarty table
-n.hc1.init <- 37
-n.hc2.init <- 79
-n.sc1.init <- 16
-n.sc2.init <- 58
-
-
-for (v.ought in 1:10)  {
+generate.consolidated.extracts <- function(v.ought) {
         
         ##  set columns in Shor McCarty extract.
         n.hc1 <- n.hc1.init + v.ought - 1
@@ -307,18 +267,9 @@ for (v.ought in 1:10)  {
                 
                 df.senate.20xx <- rbind(df.senate.20xx.aa, df.senate.20xx.mm)        
         }
-        
-  
-        
-        
-        
-        
-        
-        
-         
+                 
         rm("df.house.20xx.mm","df.senate.20xx.mm","df.house.20xx.aa","df.senate.20xx.aa")
         if(exists("df.iter")) rm(df.iter)
-        
         
         df.house.20xx$year <- n.oyear
         df.senate.20xx$year <- n.oyear
@@ -393,9 +344,14 @@ for (v.ought in 1:10)  {
              
         if (v.ought==1) df.house.2000s <- df.house.20xx else df.house.2000s <- rbind(df.house.2000s, df.house.20xx)
         if (v.ought==1) df.senate.2000s <- df.senate.20xx else df.senate.2000s <- rbind(df.senate.2000s, df.senate.20xx)
-        
+        df.house.2000s <<- df.house.2000s
+        df.senate.2000s <<- df.senate.2000s
 }       
+read.and.initialize.1("TW_lower.csv","TW_upper.csv","2013_Gaz_sldl_national.csv")
+read.and.initialize.2()
 
+load.legislator.scores()
+for (year.inp in 1:10) generate.consolidated.extracts(year.inp)
 
 save(df.senate.2000s, df.house.2000s,v.mult_memb_states, v.all.states, v.non_mult_memb_states, file= "alldata.RData")
 
