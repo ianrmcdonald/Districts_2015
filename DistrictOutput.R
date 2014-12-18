@@ -1,4 +1,4 @@
-
+library(ggplot2)
 #######################################################################
 rm(list=ls())
 
@@ -53,7 +53,7 @@ h3$party <- as.factor(h3$party)
 h3$party <- factor(h3$party, levels = c("R","D"))
 
 m <- ggplot(hy, aes(x = gpct, colour=party)) + geom_density(aes(fill = party), position = "fill") +
-        xlim(quantile(hy$gpct,.1),quantile(hy$gpct,.9))
+        xlim(quantile(hy$gpct,.1,na.rm=TRUE),quantile(hy$gpct,.9,na.rm=TRUE))
 
 m + scale_fill_manual(values = c(D = "blue", R = "red")) + geom_rug(col="black",alpha=.1,sides="b") + 
         xlab("District Growth 2000-2010") + ylab("Percentage of Districts") + ggtitle("Distribution of State Legislative Disrict Population Growth")
@@ -74,16 +74,15 @@ m + scale_fill_manual(values = c(D = "blue", R = "red")) + geom_rug(col="black",
         xlab("District Growth 2000-2010") + ylab("Percentage of Districts") + ggtitle("Distribution of State Senate Disrict Population Growth")
 
 
-(n <- ggplot(hy, aes(party,gpct)) + geom_boxplot() + ylim(quantile(hy$gpct,.1),quantile(hy$gpct,.9)) + ggtitle("Distribution of Growth by Party"))
-(n <- ggplot(sy, aes(party,gpct)) + geom_boxplot() + ylim(quantile(sy$gpct,.1),quantile(sy$gpct,.9)) + ggtitle("Distribution of Growth by Party"))
+(n <- ggplot(hy, aes(party,gpct)) + geom_boxplot() + ylim(quantile(hy$gpct,.1,na.rm=TRUE),quantile(hy$gpct,.9,na.rm=TRUE)) + ggtitle("Distribution of Growth by Party"))
 
 ## Basic descriptive scatterplot
 o <- ggplot(hy, aes(mrp_estimate, np_score, colour=party)) + geom_point() + geom_smooth(method=lm)
 o 
 
 
-STINP <- "NJ"
-hx <- house[house$st==STINP & house$year == "2004",]
+STINP <- "CA"
+hx <- house[house$st.x==STINP,]
 hx$psize <- c()
 hx$psize[hx$blend == 1] <- 7
 hx$psize[hx$blend == 0] <- 3
@@ -91,12 +90,13 @@ hx$psize[hx$blend == 0] <- 3
 hx$dnum <- substr(hx$st_hd,4,5)
 hx$dnum[hx$blend == 0] <- ""
 
-o <- ggplot(hx, aes(pres_2008, np_score, colour=party,size=psize)) + geom_point() + geom_smooth(method=lm)
+o <- ggplot(hx, aes(mrp_estimate, np_score, colour=party,size=psize)) + geom_point() + geom_smooth(method=lm)
 o #+ ylim(-3,3) + xlim(-1.5,1.5)
 o + annotate("text", x = hx$pres_2008, y = hx$np_score, label = hx$dnum, size=5)
 #o + ylim(-3,3) + xlim(-1.5,1.5) + facet_grid(st ~ .)
 
-o <- ggplot(house[house$st=="MN",], aes(gpct, np_score, colour=party)) + geom_point() + geom_smooth(method=lm)
+o <- ggplot(house[house$st.x=="MI",], aes(gpct, np_score, colour=party)) + geom_point() + geom_smooth(method=lm)
+o <- ggplot(house[house$year==2012,], aes(gpct, np_score, colour=party)) + geom_point() + geom_smooth(method=lm)
 o + ylim(-2,2) + xlim(-.3,.6)
 
 
@@ -119,7 +119,7 @@ o
 
 
 
-lines(density(house.R.year[["2012"]]$gpct))
+lines(density(house.R.year[["2012"]]$gpct),na.rm=TRUE)
 # boxplot(np_score ~ party*st,data=house,col=c(rep("white",4),rep("lightgray",4)))
 # boxplot(np_score ~ party*st,data=house.yr[["2012"]],col=c(rep("white",2),rep("lightgray",2)))
 hist(house.R.year[["2012"]]$gpct,breaks=25)
@@ -128,17 +128,17 @@ hist(house.R.year[["2012"]]$gpct,breaks=25)
 
 
 q <- glm(house$np_score ~ house$mrp_estimate + house$gpct * house$pindex); summary(q)
-q <- lmer(np_score ~ pindex * gpct + mrp_estimate + (1|st) + (1|year),data=house,REML=FALSE); summary(q)
-q <- lmer(np_score ~ pindex * gpct + mrp_estimate + (1|st) ,data=house[house$year=="2012",],REML=FALSE); summary(q)
+q <- lmer(np_score ~ pindex * gpct + mrp_estimate + (1|st.x) + (1|year),data=house,REML=FALSE); summary(q)
+q <- lmer(np_score ~ pindex * gpct + mrp_estimate + (1|st.x) ,data=house[house$year=="2012",],REML=FALSE); summary(q)
 
 ##  by year increase in pindex:gpct
 
 
-q <- lmer(np_score ~ gpct + mrp_estimate + (1|st) + (1|year),data=house.party[["R"]],REML=FALSE); summary(q)
-q <- lmer(np_score ~ g2 + mrp_estimate + (1|st) + (1|year),data=house.party[["R"]],REML=FALSE); summary(q)
+q <- lmer(np_score ~ gpct + mrp_estimate + (1|st.x) + (1|year),data=house.party[["R"]],REML=FALSE); summary(q)
+q <- lmer(np_score ~ g2 + mrp_estimate + (1|st.x) + (1|year),data=house.party[["R"]],REML=FALSE); summary(q)
 
 
-q <- lmer(np_score ~ gpct + mrp_estimate + (1|st),data=house[house$party=="D",]); summary(q)
+q <- lmer(np_score ~ gpct + mrp_estimate + (1|st.x),data=house[house$party=="D",]); summary(q)
 
 hall$pindex <- c()
 hall$pindex[hall$party=="R"] <- 1
