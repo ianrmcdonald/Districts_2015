@@ -8,16 +8,13 @@ library(foreign)
 library(dplyr)
 library(reshape)
 
-
-rm(list=ls())
-
 set.district2015.dir <- function(dir.name) {
         s.district2015_dir <<- dir.name
         setwd(s.district2015_dir)
 }
 set.district2015.dir("/Users/irm16/Dropbox/Work Projects/SPSA 2015/Source/")
 
-read.and.initialize.1 <- function(f.TW.lower, f.TW.upper, f.gazette, 
+read.and.initialize.1 <- function(f.TW.lower, f.TW.upper, f.house.gazette, f.senate.gazette,
                                   MM=c("AZ","NJ","SD","WA"), EX=c("VT","NH","MD","MA")) {       
         ####################################################################################################
         ## 1:  READ AND CLEAN THE TAUSONOVITCH AND WARSHAW DATA.  
@@ -37,8 +34,11 @@ read.and.initialize.1 <- function(f.TW.lower, f.TW.upper, f.gazette,
         df.tw.lower <<- df.tw.lower[df.tw.lower$abb %in% v.all.states,]
         df.tw.upper <<- df.tw.upper[df.tw.upper$abb %in% v.all.states,]
         
-        df.gazette <<- read.csv(f.gazette, stringsAsFactors=FALSE, header=TRUE)
-        df.gazette$sm_name_2 <<- paste(df.gazette$st, df.gazette$sm_name_1, sep=":")
+        df.house.gazette <<- read.csv(f.house.gazette, stringsAsFactors=FALSE, header=TRUE)
+        df.house.gazette$sm_name_2 <<- paste(df.house.gazette$st, df.house.gazette$sm_name_1, sep=":")
+        df.senate.gazette <<- read.csv(f.senate.gazette, stringsAsFactors=FALSE, header=TRUE)
+        df.senate.gazette$sm_name_2 <<- paste(df.senate.gazette$st, df.senate.gazette$sm_name_1, sep=":")
+        
         
         ## Column specifications for the Shor McCarty table
         n.hc1.init <<- 37
@@ -187,7 +187,7 @@ generate.consolidated.extracts <- function(v.ought) {
         df.senate.20xx[,s.currscol] <- as.numeric(df.senate.20xx[,s.currscol])
         df.senate.20xx$LD[nchar(df.senate.20xx$LD)==1] <- paste("00",df.senate.20xx$LD[nchar(df.senate.20xx$LD)==1],sep="")
         df.senate.20xx$LD[nchar(df.senate.20xx$LD)==2] <- paste("0",df.senate.20xx$LD[nchar(df.senate.20xx$LD)==2],sep="")
-        df.senate.20xx$st_sd <- paste(df.senate.20xx$st,df.senate.20xx[,"LD"],sep="")
+        df.senate.20xx$st_sd <- paste(df.senate.20xx$st,df.senate.20xx[,"LD"],sep=":")
         v.senate.20xx.tmp  <- tapply(df.senate.20xx[,s.currscol],df.senate.20xx$st_sd,sum)
         df.senate.20xx.tmp <- cbind.data.frame("st_sd"=names(v.senate.20xx.tmp),"dnum" = as.numeric(v.senate.20xx.tmp))
         df.senate.20xx <- merge(df.senate.20xx,df.senate.20xx.tmp,by="st_sd",all.x=TRUE)
@@ -290,19 +290,28 @@ generate.consolidated.extracts <- function(v.ought) {
         df.house.20xx$party[df.house.20xx$ind & df.house.20xx$np_score < 0] <- "D" 
        
         if(n.oyear >= 2009) {
-                v.mn1 <- df.gazette[df.gazette$st=="MN",c("sm_name_1")]
+                v.mn1 <- df.house.gazette[df.house.gazette$st=="MN",c("sm_name_1")]
                 v.mn1 <- substr(v.mn1,2,nchar(v.mn1))
-                df.gazette[df.gazette$st=="MN",c("sm_name_1")] <- v.mn1
+                df.house.gazette[df.house.gazette$st=="MN",c("sm_name_1")] <- v.mn1
         }
         
-        df.house.20xx <- merge(df.house.20xx,df.gazette,by.x="st_hd",by.y="sm_name_2",all.x=TRUE)
+        df.house.20xx <- merge(df.house.20xx,df.house.gazette,by.x="st_hd",by.y="sm_name_2",all.x=TRUE)
+        if(n.oyear >= 2009) {
+                df.house.20xx$st_hd[df.house.20xx$st.x=="MN"] <-
+                        paste("MN:0",df.house.20xx$LD[df.house.20xx$st.x=="MN"],sep="")
+        }
+                
         df.house.20xx <- merge(df.house.20xx,df.sld2010,by="st_hd",all.x=TRUE)
         
+        if(n.oyear >= 2009) {
+                df.house.20xx$st_hd[df.house.20xx$st.x=="MN"] <-
+                        paste("MN:",df.house.20xx$LD[df.house.20xx$st.x=="MN"],sep="")
+        }
                
         df.senate.20xx$ind <- df.senate.20xx$party != "D" & df.senate.20xx$party != "R"       
         df.senate.20xx$party[df.senate.20xx$ind==TRUE & df.senate.20xx$np_score >= 0] <- "R"
         df.senate.20xx$party[df.senate.20xx$ind & df.senate.20xx$np_score < 0] <- "D"        
-        df.senate.20xx <- merge(df.senate.20xx,df.gazette,by.x="st_sd",by.y="sm_name_2",all.x=TRUE)
+        df.senate.20xx <- merge(df.senate.20xx,df.senate.gazette,by.x="st_sd",by.y="sm_name_2",all.x=TRUE)
         df.senate.20xx <- merge(df.senate.20xx,df.ssd2010,by.x="st_sd",by.y="st_sd",all.x=TRUE)
        
         m.house.party <- table(df.house.20xx$st_hd,df.house.20xx$party)
@@ -328,18 +337,16 @@ generate.consolidated.extracts <- function(v.ought) {
         
         df.tw.lower[df.tw.lower$abb=="MN","st_hd"] <- df.mn$st_hd
         
-        #df.tw.lower[df.tw.lower$abb=="MN"]$st_hd <- paste(df.tw.lower[df.tw.lower$abb=="MN"]$st_hd,substr(, nchar(x)-n+1, nchar(x))
-        #df.tw.lower <- merge(df.tw.lower, df.gazette, by.x="st_hd",by.y="sm_name_2",all.x=TRUE)
-        
         ## Create a lookup field for the gazette
         df.house.20xx <-merge(df.house.20xx,df.tw.lower,by.x="st_hd",by.y="st_hd",all.x=TRUE)  
         df.house.20xx$pres_2008 <- as.numeric(df.house.20xx$pres_2008)
         df.house.20xx$mrp_estimate <- as.numeric(df.house.20xx$mrp_estimate)
         df.house.20xx$mrp_se <- as.numeric(df.house.20xx$mrp_se)
         
-        df.tw.upper$st_sd <- paste(df.tw.upper$abb,sprintf("%03d",df.tw.upper$ssd_fips_num %% 1000),sep="")
+        df.tw.upper$st_sd <- paste(df.tw.upper$abb,sprintf("%03d",df.tw.upper$ssd_fips_num %% 1000),sep=":")
         df.tw.upper <- df.tw.upper  ## Need to replicate gazette process for house
-        df.tw.upper[df.tw.upper$abb=="AK",]$st_sd <- paste("AK00",str_sub(df.tw.upper[df.tw.upper$abb=="AK",]$ssd_df.fips,-1),sep="")
+        df.tw.upper[df.tw.upper$abb=="AK",]$st_sd <- 
+                paste("AK:",substr(df.tw.upper$ssd_fips[df.tw.upper$abb=="AK"],3,6),sep="")
         df.senate.20xx <- merge(df.senate.20xx,df.tw.upper,by.x="st_sd",by.y="st_sd",all.x=TRUE)  ## NOT MERGING WITH GAZETTE!!!! (12/16)
              
         if (v.ought==1) df.house.2000s <- df.house.20xx else df.house.2000s <- rbind(df.house.2000s, df.house.20xx)
@@ -347,7 +354,7 @@ generate.consolidated.extracts <- function(v.ought) {
         df.house.2000s <<- df.house.2000s
         df.senate.2000s <<- df.senate.2000s
 }       
-read.and.initialize.1("TW_lower.csv","TW_upper.csv","2013_Gaz_sldl_national.csv")
+read.and.initialize.1("TW_lower.csv","TW_upper.csv","2013_Gaz_sldl_national.csv","2013_Gaz_sldu_national.csv")
 read.and.initialize.2()
 
 load.legislator.scores()
@@ -356,6 +363,7 @@ for (year.inp in 1:10) generate.consolidated.extracts(year.inp)
 save(df.senate.2000s, df.house.2000s,v.mult_memb_states, v.all.states, v.non_mult_memb_states, file= "alldata.RData")
 
 #######################################################################
-del <- df.house.2000s[is.na(df.house.2000s$mrp_estimate),]
-View(df.house.2000s[df.house.2000s$st.x=="MN",])
-
+del1 <- df.house.2000s[is.na(df.house.2000s$mrp_estimate),]
+del2 <- df.house.2000s[is.na(df.house.2000s$gpct),]
+del3 <- df.senate.2000s[is.na(df.senate.2000s$mrp_estimate),]
+del4 <- df.senate.2000s[is.na(df.senate.2000s$gpct),]
