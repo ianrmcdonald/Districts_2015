@@ -1,7 +1,7 @@
 library(ggplot2)
 #######################################################################
 rm(list=ls())
-
+setwd("/Users/irm16/Dropbox/Work Projects/SPSA 2015/Source/")
 load("alldata.RData")
 house <- df.house.2000s; rm(df.house.2000s); senate <- df.senate.2000s; rm(df.senate.2000s)
 house$party <- as.factor(house$party)
@@ -91,7 +91,7 @@ hx$dnum <- substr(hx$st_hd,4,5)
 hx$dnum[hx$blend == 0] <- ""
 
 o <- ggplot(hx, aes(mrp_estimate, np_score, colour=party,size=psize)) + geom_point() + geom_smooth(method=lm)
-o #+ ylim(-3,3) + xlim(-1.5,1.5)
+o + ylim(-3,3) + xlim(-1.5,1.5)
 o + annotate("text", x = hx$pres_2008, y = hx$np_score, label = hx$dnum, size=5)
 #o + ylim(-3,3) + xlim(-1.5,1.5) + facet_grid(st ~ .)
 
@@ -126,15 +126,23 @@ hist(house.R.year[["2012"]]$gpct,breaks=25)
 ## create a two-way proportional graph.
 
 
+library(lme4)
+
+## Note:  Remember to do a null model
+
+model0 <- lme(fixed=np_score~1, random=~1|st.x, data=house[house$year=="2012",], method="ML")
 
 q <- glm(house$np_score ~ house$mrp_estimate + house$gpct * house$pindex); summary(q)
 q <- lmer(np_score ~ pindex * gpct + mrp_estimate + (1|st.x) + (1|year),data=house,REML=FALSE); summary(q)
+q1 <- lmer(np_score ~ pindex * gpct + mrp_estimate + (1 + gpct|st.x),data=house,REML=FALSE); summary(q1)
+
+nl <- lmer(np_score ~ pindex + mrp_estimate + (1|st.x) + (1|year),data=house,REML=FALSE); summary(nl)
 q <- lmer(np_score ~ pindex * gpct + mrp_estimate + (1|st.x) ,data=house[house$year=="2012",],REML=FALSE); summary(q)
 
 ##  by year increase in pindex:gpct
 
 
-q <- lmer(np_score ~ gpct + mrp_estimate + (1|st.x) + (1|year),data=house.party[["R"]],REML=FALSE); summary(q)
+q2 <- lmer(np_score ~ gpct + mrp_estimate + (1|st.x) + (1|year),data=house.party[["R"]],REML=FALSE); summary(q2)
 q <- lmer(np_score ~ g2 + mrp_estimate + (1|st.x) + (1|year),data=house.party[["R"]],REML=FALSE); summary(q)
 
 
