@@ -1,138 +1,171 @@
-library(ggplot2)
-#######################################################################
-rm(list=ls())
-setwd("/Users/irm16/Dropbox/Work Projects/SPSA 2015/Source/")
-load("alldata.RData")
-house <- df.house.2000s; rm(df.house.2000s); senate <- df.senate.2000s; rm(df.senate.2000s)
-house$party <- as.factor(house$party)
-house$party <- factor(house$party, levels = c("R","D"))
-cutoff <- .1
-house$g2[house$gpct >= cutoff] <- 1
-house$g2[house$gpct < cutoff] <- 0
-house$pindex <- c()
-house$pindex[house$party=="R"] <- 1
-house$pindex[house$party=="D"] <- -1
 
-MMONLY <- FALSE
-if (MMONLY) {
-        house <- house[house$st %in% v.mult_memb_states,]
-        senate <- senate[senate$st %in% v.mult_memb_states,]
+#######################################################################
+## DistrictOutput.R
+## routines to generate models and graphs from district data
+##
+#######################################################################
+
+
+library(ggplot2)
+rm(list=ls())
+dir_working <- "/Users/irm16/Dropbox/Work Projects/Districts 2015/Source/"
+setwd(dir_working)
+load("alldata.RData")
+library(lme4)
+
+# 1.  Read Consolidated District Data -------------------------------------
+
+f_load_house <- function(df.input, i.cutoff=.1, MMONLY=FALSE, MMVEC=v.mult_memb_states) {
+
+        df.input$party <- as.factor(df.input$party)
+        df.input$party <- factor(df.input$party, levels = c("R","D"))
+
+        df.input$growth_level[df.input$gpct >= i.cutoff] <- 1
+        df.input$growth.level[df.input$gpct < i.cutoff] <- 0
+
+        df.input$pindex <- c()
+        df.input$pindex[df.input$party=="R"] <- 1
+        df.input$pindex[df.input$party=="D"] <- -1
+
+        if (MMONLY) {
+                df.input <- df.input[df.input$st.x %in% MMVEC,]
+        }
+        return(df.input)
 }
 
-house.yr <- split(house,house$year)    ## creates list with individual years    
-senate.yr <- split(senate,senate$year)       
+df.house <- f_load_house(df.house.2000s, MMONLY=FALSE) #; rm(df.house.2000s)
+df.senate <- f_load_house(df.senate.2000s, MMONLY=TRUE) #; rm(df.senate.2000s)
 
-## create fields used for graphic displays
+
+# 2.  Create fields used for graphic displays -----------------------------
 size <- 1; varexp <- 1
-house$datacolor <- rep("light blue",length(house$party))
-house$datacolor[house$party == "R"] <- "pink"
-house$datacolor[house$party == "R" & house$blend==TRUE] <- "red"
-house$datacolor[house$party == "D" & house$blend==TRUE] <- "blue"
-house$d.size <- size*house$gpct^varexp*10
+df.house$datacolor <- rep("light blue",length(df.house$party))
+df.house$datacolor[df.house$party == "R"] <- "pink"
+df.house$datacolor[df.house$party == "R" & df.house$blend==TRUE] <- "red"
+df.house$datacolor[df.house$party == "D" & df.house$blend==TRUE] <- "blue"
+df.house$d.size <- size*df.house$gpct^varexp*10
 
-house.party <- split(house,house$party)
-house.R.year <- split(house.party[["R"]],house.party[["R"]]$year)
-house.D.year <- split(house.party[["D"]],house.party[["D"]]$year)
-senate.party <- split(senate,senate$party)
-senate.R.year <- split(senate.party[["R"]],senate.party[["R"]]$year)
-senate.D.year <- split(senate.party[["D"]],senate.party[["D"]]$year)
+# 3.  Generate lists of df’s for each year, party, and party/year combination  ----
+
+df.house.yr <- split(df.house,df.house$year)
+df.senate.yr <- split(df.senate,df.senate$year)
+df.house.party <- split(df.house,df.house$party)
+df.house.R.year <- split(df.house.party[["R"]],df.house.party[["R"]]$year)
+df.house.D.year <- split(df.house.party[["D"]],df.house.party[["D"]]$year)
+df.senate.party <- split(df.senate,df.senate$party)
+df.senate.R.year <- split(df.senate.party[["R"]],df.senate.party[["R"]]$year)
+df.senate.D.year <- split(df.senate.party[["D"]],df.senate.party[["D"]]$year)
 
 
 
-##  1.  Descriptive statistics on intradecade population growth
+#  4.  Descriptive statistics on intradecade population growth ---------------------
 ##  a.  Histogram and density of growth for all house and senate districts
 
+f.pick.year <- function(df.input, year) {
+        df.output <- df.input[[year]]
+        return(df.output)
+}
+
+hy <- f.pick.year(df.house.yr,"2012")
+sy <- f.pick.year(df.senate.yr,"2012")
 
 
-hy <- house.yr[["2012"]]
-hy$party <- as.factor(hy$party)
-hy$party <- factor(hy$party, levels = c("R","D"))
+##  Conditional Distribution of growth by party (House) ----------------
 
-h3 <- house.yr[["2003"]]
-h3$party <- as.factor(h3$party)
-h3$party <- factor(h3$party, levels = c("R","D"))
+m <- ggplot(hy, aes(x = gpct*100, colour=party)) +
+        geom_density(aes(fill = party), position = "fill") +
+        xlim(quantile(hy$gpct*100,.1,na.rm=TRUE),quantile(hy$gpct*100,.9,na.rm=TRUE))
+        ## Note:  generates a warning message for removed rows
 
-m <- ggplot(hy, aes(x = gpct, colour=party)) + geom_density(aes(fill = party), position = "fill") +
-        xlim(quantile(hy$gpct,.1,na.rm=TRUE),quantile(hy$gpct,.9,na.rm=TRUE))
-
-m + scale_fill_manual(values = c(D = "blue", R = "red")) + geom_rug(col="black",alpha=.1,sides="b") + 
-        xlab("District Growth 2000-2010") + ylab("Percentage of Districts") + ggtitle("Distribution of State Legislative Disrict Population Growth")
-
-
-sy <- senate.yr[["2012"]]
-sy$party <- as.factor(sy$party)
-sy$party <- factor(sy$party, levels = c("R","D"))
-
-#####################
-## Graphs
-#####################
-
-m <- ggplot(sy, aes(x = gpct, colour=party)) + geom_density(aes(fill = party), position = "fill") +
-        xlim(quantile(sy$gpct,.05),quantile(sy$gpct,.95))
-
-m + scale_fill_manual(values = c(D = "blue", R = "red")) + geom_rug(col="black",alpha=.1,sides="b") + 
-        xlab("District Growth 2000-2010") + ylab("Percentage of Districts") + ggtitle("Distribution of State Senate Disrict Population Growth")
+m + scale_fill_manual(values = c(D = "blue", R = "red")) +
+        geom_rug(col="black",alpha=.1,sides="b") +
+        xlab("District Growth % 2000-2010") +
+        ylab("Percentage of Districts") +
+        ggtitle("Distribution of State Legislative Disrict Population Growth")
 
 
-(n <- ggplot(hy, aes(party,gpct)) + geom_boxplot() + ylim(quantile(hy$gpct,.1,na.rm=TRUE),quantile(hy$gpct,.9,na.rm=TRUE)) + ggtitle("Distribution of Growth by Party"))
+##  Conditional Distribution of growth by party (Senate) ----------------
 
-## Basic descriptive scatterplot
-o <- ggplot(hy, aes(mrp_estimate, np_score, colour=party)) + geom_point() + geom_smooth(method=lm)
-o 
+m <- ggplot(sy, aes(x = gpct*100, colour=party)) +
+        geom_density(aes(fill = party), position = "fill") +
+        xlim(quantile(sy$gpct*100,.1),quantile(sy$gpct*100,.9))
+
+m + scale_fill_manual(values = c(D = "blue", R = "red")) +
+        geom_rug(col="black",alpha=.1,sides="b") +
+        xlab("District Growth % 2000-2010") +
+        ylab("Percentage of Districts") +
+        ggtitle("Distribution of State Senate Disrict Population Growth")
+
+##  boxplot growth by party (House) ----------------
+
+n <- ggplot(hy, aes(party,gpct)) +
+        geom_boxplot() +
+        ylim(quantile(hy$gpct,.1,na.rm=TRUE),quantile(hy$gpct,.9,na.rm=TRUE)) +
+        ggtitle("Distribution of Growth by Party")
+
+n
+
+##  boxplot growth by party (Senate) ----------------
+
+n <- ggplot(sy, aes(party,gpct)) +
+        geom_boxplot() +
+        ylim(quantile(hy$gpct,.1,na.rm=TRUE),quantile(hy$gpct,.9,na.rm=TRUE)) +
+        ggtitle("Distribution of Growth by Party")
+
+n
+
+###############################################################################################
+
+## Fig 4  Basic descriptive scatterplot
+o <- ggplot(hy, aes(mrp_estimate, np_score, colour=party)) +
+        geom_point() +
+        geom_smooth(method=lm)
+
+o
+
+o <- ggplot(sy, aes(mrp_estimate, np_score, colour=party)) +
+        geom_point() +
+        geom_smooth(method=lm)
+
+o
+
+####################### Break work on 2/26/15 at 2:44 ####################################
 
 
-STINP <- "CA"
-hx <- house[house$st.x==STINP,]
+
+STINP <- c("FL","NJ","NC")
+hx <- df.house[df.house$st.x %in% STINP,]
 hx$psize <- c()
 hx$psize[hx$blend == 1] <- 7
 hx$psize[hx$blend == 0] <- 3
-
+ 
 hx$dnum <- substr(hx$st_hd,4,5)
 hx$dnum[hx$blend == 0] <- ""
 
-o <- ggplot(hx, aes(mrp_estimate, np_score, colour=party,size=psize)) + geom_point() + geom_smooth(method=lm)
-o + ylim(-3,3) + xlim(-1.5,1.5)
-o + annotate("text", x = hx$pres_2008, y = hx$np_score, label = hx$dnum, size=5)
-#o + ylim(-3,3) + xlim(-1.5,1.5) + facet_grid(st ~ .)
+o <- ggplot(hy, aes(gpct, np_score, st.x, colour=party)) + 
+        geom_point()  +
+        geom_smooth(method=lm)
 
-o <- ggplot(house[house$st.x=="MI",], aes(gpct, np_score, colour=party)) + geom_point() + geom_smooth(method=lm)
-o <- ggplot(house[house$year==2012,], aes(gpct, np_score, colour=party)) + geom_point() + geom_smooth(method=lm)
-o + ylim(-2,2) + xlim(-.3,.6)
+o <- ggplot(df.house[df.house$year==2003,], aes(gpct, np_score, colour=party)) + 
+        geom_point() + 
+        geom_smooth(method=lm)
 
+o + facet_wrap( ~ st.x) + ylim(-2,2) + 
+        xlim(-.3,.6)
 
 
 o <- ggplot(sy, aes(mrp_estimate, np_score, colour=party)) + geom_point() + geom_smooth(method=lm)
-o
+o 
 
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-lines(density(house.R.year[["2012"]]$gpct),na.rm=TRUE)
-# boxplot(np_score ~ party*st,data=house,col=c(rep("white",4),rep("lightgray",4)))
-# boxplot(np_score ~ party*st,data=house.yr[["2012"]],col=c(rep("white",2),rep("lightgray",2)))
-hist(house.R.year[["2012"]]$gpct,breaks=25)
-## create a two-way proportional graph.
-
-
-library(lme4)
 
 ## Note:  Remember to do a null model
-
-model0 <- lme(fixed=np_score~1, random=~1|st.x, data=house[house$year=="2012",], method="ML")
-
-q <- glm(house$np_score ~ house$mrp_estimate + house$gpct * house$pindex); summary(q)
+library(nlme)
+model0 <- lme(fixed=np_score~1, random=~1|st.x, data=hy, method="ML")
+q <- glm(np_score ~ mrp_estimate + gpct + pindex,data=hy); summary(q)
+q <- glm(np_score ~ mrp_estimate + gpct * pindex,data=hy); summary(q)
 q <- lmer(np_score ~ pindex * gpct + mrp_estimate + (1|st.x) + (1|year),data=house,REML=FALSE); summary(q)
 q1 <- lmer(np_score ~ pindex * gpct + mrp_estimate + (1 + gpct|st.x),data=house,REML=FALSE); summary(q1)
 
